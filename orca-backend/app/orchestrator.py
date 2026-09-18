@@ -419,55 +419,72 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
 
 
 def get_location_coordinates(query: str) -> tuple[float, float] | None:
-    """Extract location from query and geocode via Nominatim."""
-    from langchain_core.messages import SystemMessage, HumanMessage
-    import urllib.request
+    import re
+    import requests
     import urllib.parse
-    messages = [
-        SystemMessage(content="Extract the geographic location name (city, port, region) from the query. Return ONLY the location name. If none, return NONE."),
-        HumanMessage(content=query)
-    ]
-    try:
-        ai, _ = _invoke_with_fallback(messages, bind_tools=False)
-        
-        # Handle list format from Gemini
-        content = ai.content
-        if isinstance(content, list):
-            text_parts = [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
-            place = "".join(text_parts).strip()
-        else:
-            place = str(content).strip()
-            
-        if place.upper() == 'NONE' or not place:
-            return None
-            
-        place_lower = place.lower()
-        if "gulf of mannar" in place_lower or "palk bay" in place_lower:
-            return (9.25, 79.4) # Central valid point
-        
-        url = 'https://nominatim.openstreetmap.org/search?q=' + urllib.parse.quote(place) + '&format=json&limit=1'
-        req = urllib.request.Request(url, headers={'User-Agent': 'ORCA_Maritime_App/1.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode())
-            if data:
-                return float(data[0]['lat']), float(data[0]['lon'])
-    except Exception as e:
-        logger.warning(f"Failed to geocode query location: {e}")
-    return None
+    
+    # Tier 1: Coordinate Regex
+    coord_pattern = r'(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)'
+    match = re.search(coord_pattern, query)
+    if match:
+        logger.info(f"Location resolved via Tier 1 (Regex): {match.groups()}")
+        return float(match.group(1)), float(match.group(2))
+    
+    # Tier 2: Local Gazetteer
+    query_lower = query.lower()
+    gazetteer = {
+        "rameswaram": (9.2885, 79.3129),
+        "dhanushkodi": (9.1600, 79.4300),
+        "mandapam": (9.2783, 79.1235),
+        "gulf of mannar": (9.25, 79.4),
+        "palk bay": (9.66, 79.28),
+        "tuticorin": (8.7642, 78.1348),
+        "pamban": (9.2721, 79.2152)
+    }
+    for place, coords in gazetteer.items():
+        if place in query_lower:
+            logger.info(f"Location resolved via Tier 2 (Gazetteer): {place} -> {coords}")
+            return coords
 
+    # Tier 3: Hardened Nominatim Fallback
+    url = 'https://nominatim.openstreetmap.org/search?q=' + urllib.parse.quote(query) + '&format=json&limit=1'
+    try:
+        response = requests.get(
+            url, 
+            headers={'User-Agent': 'ORCA_Maritime_App/1.0'},
+            timeout=1.5
+        )
+        response.raise_for_status()
+        data = response.json()
+        if data:
+            logger.info(f"Location resolved via Tier 3 (Nominatim): {data[0]['lat']}, {data[0]['lon']}")
+            return float(data[0]['lat']), float(data[0]['lon'])
+    except requests.RequestException as e:
+        logger.warning(f"Tier 3 Nominatim error or timeout: {e}")
+        return None
+        
+    return None
 
 def handle_query(state: RouteRequestState) -> RouteRequestState:
     """End-to-end pipeline: LLM intent → tool dispatch → deterministic verdict → LLM narration."""
     # 1. Out-of-bounds / invalid location validation
     coords = get_location_coordinates(state.user_query)
-    if coords is not None:
-        lat, lon = coords
-        # Box: lat 9.0–9.5, lon 79.0–79.8, plus 0.5 margin -> lat 8.5 to 10.0, lon 78.5 to 80.3
-        if not (8.5 <= lat <= 10.0 and 78.5 <= lon <= 80.3):
-            logger.warning(f"Query out of bounds: {coords} for '{state.user_query}'")
-            state.verdict = None
-            state.final_advisory_text = "This location is outside ORCA's current operational area (Gulf of Mannar / Palk Bay, Tamil Nadu). This demo is scoped to this region and cannot provide marine safety data elsewhere."
-            return state
+    
+    if coords is None:
+        # If no coordinates could be resolved at all, also fail closed
+        state.verdict = None
+        state.status = "OUT_OF_BOUNDS"
+        state.final_advisory_text = "This location could not be resolved or is outside ORCA's current operational area (Gulf of Mannar / Palk Bay, Tamil Nadu). This demo is scoped to this region and cannot provide marine safety data elsewhere."
+        return state
+        
+    lat, lon = coords
+    # Box: lat 9.0–9.5, lon 79.0–79.8, plus 0.5 margin -> lat 8.5 to 10.0, lon 78.5 to 80.3
+    if not (8.5 <= lat <= 10.0 and 78.5 <= lon <= 80.3):
+        logger.warning(f"Query out of bounds: {coords} for '{state.user_query}'")
+        state.verdict = None
+        state.status = "OUT_OF_BOUNDS"
+        state.final_advisory_text = "This location is outside ORCA's current operational area (Gulf of Mannar / Palk Bay, Tamil Nadu). This demo is scoped to this region and cannot provide marine safety data elsewhere."
+        return state
 
     state = parse_intent_and_dispatch(state)
     if state.abort_reason:

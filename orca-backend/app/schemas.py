@@ -24,6 +24,7 @@ class RouteRequestState(BaseModel):
     weather_risks: list[dict] = []
     optimized_route: list[dict] = []
     verdict: dict | None = None
+    status: str | None = None
     legal_status: bool | None = None
     abort_reason: str | None = None
     final_advisory_text: str | None = None
