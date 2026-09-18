@@ -6,3 +6,4 @@ langchain-core
 langchain-groq
 langchain-google-genai
 httpx
+shapely

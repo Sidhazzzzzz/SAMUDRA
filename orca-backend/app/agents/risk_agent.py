@@ -64,6 +64,28 @@ def evaluate_verdict(
             "evaluated_at": now_iso,
         }
 
+    # Priority 2.5: Lightning risk
+    # NOTE: Open-Meteo's free Marine API does not include a lightning or
+    # thunderstorm probability field as of 2026-09.  The standard forecast
+    # API offers `cape` (Convective Available Potential Energy in J/kg) which
+    # correlates with thunderstorm activity, but not a direct lightning
+    # probability.  Until a real lightning data source is integrated, we use
+    # a mock value passed in weather_result or default to 0.0.
+    # When a real source is available, replace `lightning_risk` below with
+    # the actual API field.
+    lightning_risk = weather_result.get("lightning_risk", 0.0)  # 0.0 – 1.0 scale (MOCK)
+    LIGHTNING_THRESHOLD = 0.7  # ≥70% → CAUTION
+
+    if lightning_risk >= LIGHTNING_THRESHOLD:
+        return {
+            "verdict": "CAUTION",
+            "reason": (
+                f"Elevated lightning risk ({lightning_risk:.0%}) in the operational area. "
+                "Avoid open-deck operations and seek shelter if thunderstorm develops."
+            ),
+            "evaluated_at": now_iso,
+        }
+
     # Priority 3: Within 20% of threshold limits (wave >= 2.0m or gusts >= 20.0 knots)
     wave_height = weather_result.get("wave_height_m")
     wind_gusts = weather_result.get("wind_gusts_knots")

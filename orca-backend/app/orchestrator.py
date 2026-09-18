@@ -29,6 +29,7 @@ from app.agents.pfz_agent import get_active_pfz as _pfz_get_active
 from app.agents.geospatial_agent import get_route_between as _geo_get_route
 from app.agents.risk_agent import evaluate_verdict
 from app.agents.reporting_agent import generate_advisory as _report_advisory
+from app.agents.marine_data_agent import analyze_ecosystem_trends as _marine_ecosystem
 
 load_dotenv()
 
@@ -138,7 +139,19 @@ def plan_fishing_route(
 
 # ── Tool registry (used for both LLM binding and local dispatch) ──────────
 
-TOOLS = [get_active_pfz, get_storm_status, get_route_between, plan_fishing_route]
+@tool
+def get_ecosystem_trend(region: str, years: int = 3) -> dict:
+    """Analyse multi-year ecosystem health trends (SST, chlorophyll-a, fish productivity)
+    for a named coastal region.
+
+    Args:
+        region: Name of the coastal region (e.g. "Gulf of Mannar", "Rameswaram").
+        years:  Number of years to analyse (default 3).
+    """
+    return _marine_ecosystem(region, years)
+
+
+TOOLS = [get_active_pfz, get_storm_status, get_route_between, plan_fishing_route, get_ecosystem_trend]
 _TOOL_MAP: dict[str, Any] = {t.name: t for t in TOOLS}
 
 # ── LLM construction helpers ──────────────────────────────────────────────
@@ -149,7 +162,9 @@ _TOOL_SELECTION_SYSTEM = (
     "  • get_active_pfz – look up Potential Fishing Zones\n"
     "  • get_storm_status – check storm / cyclone advisories\n"
     "  • get_route_between – compute a sea route between two points\n"
-    "  • plan_fishing_route – end-to-end fishing trip planner\n\n"
+    "  • plan_fishing_route – end-to-end fishing trip planner\n"
+    "  • get_ecosystem_trend – analyse multi-year ecosystem health trends "
+    "(SST, chlorophyll-a, fish productivity)\n\n"
     "RULES:\n"
     "1. You MUST respond ONLY with one or more tool_calls.\n"
     "2. NEVER return coordinates, route waypoints, PFZ data, or weather data "
@@ -163,6 +178,8 @@ _TOOL_SELECTION_SYSTEM = (
     "6. For queries about fishing zones or PFZ, call get_active_pfz.\n"
     "7. For queries about routing, call get_route_between with appropriate "
     "   coordinates (use Rameswaram harbour 9.2885, 79.3129 as default origin).\n"
+    "8. For queries about ecosystem health, fish productivity trends, SST changes, "
+    "   chlorophyll decline, or 'why has fishing declined', call get_ecosystem_trend.\n"
 )
 
 _NARRATION_SYSTEM = (
@@ -274,6 +291,13 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
                 state.weather_risks = [result["storm"]]
             state.optimized_route = result.get("route", {}).get("waypoints", [])
 
+        elif tool_name == "get_ecosystem_trend":
+            # Store ecosystem trend data in the state for narration
+            # (no separate state field yet — pass via weather_risks or a generic bucket)
+            if not hasattr(state, '_extra_data'):
+                state._extra_data = {}
+            state._extra_data["ecosystem_trend"] = result
+
     return state
 
 
@@ -294,6 +318,8 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
         data_snapshot["optimized_route"] = state.optimized_route
     if state.abort_reason:
         data_snapshot["abort_reason"] = state.abort_reason
+    if hasattr(state, '_extra_data') and state._extra_data:
+        data_snapshot.update(state._extra_data)
 
     verdict_info = state.verdict or {
         "verdict": "CAUTION",

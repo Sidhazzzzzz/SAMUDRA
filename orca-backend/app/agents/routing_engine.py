@@ -54,14 +54,27 @@ CACHE_FILE = CACHE_DIR / "bathymetry_cache_mannar.json"
 def imbl_barrier_cost(lat: float, lon: float) -> float:
     """Additional traversal cost for cells near the India–Sri Lanka IMBL.
 
-    TODO: implement once IMBL coordinates are verified against a primary
-    authoritative source (e.g. official maritime boundary treaty coordinates).
-    This function should return a high penalty cost (e.g. float('inf') for
-    hard exclusion, or a large finite value for soft avoidance) for grid
-    cells that fall within or very close to the IMBL exclusion zone.
-
-    For now, returns 0.0 (no additional cost) for all cells.
+    Uses the verified 1974 Agreement boundary coordinates from
+    geospatial_agent.  Returns float('inf') for cells on the IMBL line
+    itself (hard exclusion) or a large finite penalty for cells within
+    the 3nm caution buffer (soft avoidance to discourage routing near
+    the boundary).
     """
+    from shapely.geometry import Point
+
+    # Lazy import to avoid circular dependency at module load time
+    from app.agents.geospatial_agent import IMBL_LINE, IMBL_CAUTION_ZONE
+
+    pt = Point(lon, lat)  # Shapely uses (x=lon, y=lat)
+
+    # Hard exclusion: on or past the IMBL line
+    if IMBL_LINE.distance(pt) < 1e-6:
+        return float("inf")
+
+    # Soft penalty: within 3nm caution buffer
+    if IMBL_CAUTION_ZONE.contains(pt):
+        return 50.0  # Large penalty in km-equivalent units
+
     return 0.0
 
 
