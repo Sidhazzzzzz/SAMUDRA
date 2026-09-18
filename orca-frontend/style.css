@@ -377,7 +377,3 @@ body {
     display: inline-block;
 }
 
-/* Water hue shift for dark matter to make it more distinctively navy */
-.leaflet-tile-pane {
-    filter: sepia(30%) hue-rotate(180deg) saturate(250%) brightness(85%) contrast(110%);
-}
