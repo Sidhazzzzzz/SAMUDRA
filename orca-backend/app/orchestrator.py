@@ -118,17 +118,32 @@ def plan_fishing_route(
     if check_storm_risk:
         storm = _weather_get_storm(bbox)
 
-    first_pfz = pfz["pfz_zones"][0]
+    pfz_lines = pfz.get("pfz_lines", [])
+    if pfz_lines:
+        first_pfz = pfz_lines[0]
+        geom = first_pfz.get("geometry", {})
+        coords = geom.get("coordinates", [])
+        
+        # MultiLineString format: [[[lon, lat], [lon, lat]], ...]
+        dest_lon, dest_lat = _PLACEHOLDER_DEST[1], _PLACEHOLDER_DEST[0] # Default
+        try:
+            if coords and len(coords) > 0 and len(coords[0]) > 0:
+                dest_lon, dest_lat = coords[0][0][0], coords[0][0][1]
+        except (IndexError, TypeError):
+            pass
+    else:
+        dest_lat, dest_lon = _PLACEHOLDER_DEST[0], _PLACEHOLDER_DEST[1]
+        
     route = _geo_get_route(
         origin_lat=_PLACEHOLDER_ORIGIN[0],
         origin_lon=_PLACEHOLDER_ORIGIN[1],
-        dest_lat=first_pfz["centroid_lat"],
-        dest_lon=first_pfz["centroid_lon"],
+        dest_lat=dest_lat,
+        dest_lon=dest_lon,
         vessel_draft_m=_PLACEHOLDER_DRAFT_M,
     )
 
     return {
-        "source": "MOCK_DATA",
+        "source": "INCOIS GeoServer",
         "origin_port": origin_port,
         "language": language_out,
         "pfz": pfz,
@@ -192,9 +207,11 @@ _NARRATION_SYSTEM = (
     "1. State the exact pre-computed verdict (SAFE, CAUTION, or NO-GO) prominently at the beginning.\n"
     "2. You are NOT permitted to decide or alter the safety verdict on your own.\n"
     "3. ONLY narrate the values present in the JSON — never invent, alter, "
-    "   or add any numeric or geospatial data not present in the input.\n"
-    "4. Use simple language a non-technical mariner can understand.\n"
-    "5. Keep the response under 200 words.\n"
+    "   or add any numeric or geospatial data not present in the input. Explicitly forbidden: mentioning fish species or confidence percentages (this data does not exist in the real source).\n"
+    "4. When describing PFZ advisories, ALWAYS use the bearing/distance/depth guidance from the named landing centre provided in the data.\n"
+    "5. Include real SST and Chlorophyll values when present ('sea surface temperature X°C, chlorophyll Y mg/m³ near [location]') without fabricating a value when the fetch returns null — in that case simply omit the SST/chlorophyll line.\n"
+    "6. Use simple language a non-technical mariner can understand.\n"
+    "7. Keep the response under 200 words.\n"
 )
 
 
@@ -276,7 +293,17 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
 
         # ── Populate state based on which tool was called ──────────────
         if tool_name == "get_active_pfz":
-            state.pfz_targets = result.get("pfz_zones", [])
+            state.pfz_targets = result.get("pfz_lines", [])
+            if not hasattr(state, '_extra_data'):
+                state._extra_data = {}
+            state._extra_data["pfz_info"] = {
+                "sector": result.get("sector"),
+                "advisory_date": result.get("advisory_date"),
+                "nearest_landing_centre": result.get("nearest_landing_centre"),
+                "sst_celsius": result.get("sst_celsius"),
+                "chlorophyll_mgm3": result.get("chlorophyll_mgm3"),
+                "source": result.get("source")
+            }
 
         elif tool_name == "get_storm_status":
             state.weather_risks = [result]
@@ -286,7 +313,18 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
 
         elif tool_name == "plan_fishing_route":
             # Composite tool — unpack its sub-results
-            state.pfz_targets = result.get("pfz", {}).get("pfz_zones", [])
+            pfz_res = result.get("pfz", {})
+            state.pfz_targets = pfz_res.get("pfz_lines", [])
+            if not hasattr(state, '_extra_data'):
+                state._extra_data = {}
+            state._extra_data["pfz_info"] = {
+                "sector": pfz_res.get("sector"),
+                "advisory_date": pfz_res.get("advisory_date"),
+                "nearest_landing_centre": pfz_res.get("nearest_landing_centre"),
+                "sst_celsius": pfz_res.get("sst_celsius"),
+                "chlorophyll_mgm3": pfz_res.get("chlorophyll_mgm3"),
+                "source": pfz_res.get("source")
+            }
             if result.get("storm") is not None:
                 state.weather_risks = [result["storm"]]
             state.optimized_route = result.get("route", {}).get("waypoints", [])
@@ -343,9 +381,16 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
 
     try:
         ai_msg, model_label = _invoke_with_fallback(messages, bind_tools=False)
-        state.final_advisory_text = ai_msg.content
+        
+        content = ai_msg.content
+        if isinstance(content, list):
+            # Extract text from Gemini blocks
+            text_parts = [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
+            content = "".join(text_parts) if text_parts else str(content)
+            
+        state.final_advisory_text = str(content)
         logger.info("Narration generated by %s (%d chars)",
-                    model_label, len(ai_msg.content))
+                    model_label, len(state.final_advisory_text))
     except Exception as exc:
         logger.error("Narration LLM call failed: %s", exc)
         state.final_advisory_text = (

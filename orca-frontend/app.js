@@ -158,23 +158,28 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Draw PFZ Targets
+        // Draw PFZ Targets (Real INCOIS pfzlines are MultiLineString)
         if (data.pfz_targets && data.pfz_targets.length > 0) {
-            data.pfz_targets.forEach(pfz => {
-                const radiusMeters = pfz.radius_nm * 1852;
-                const circle = L.circle([pfz.centroid_lat, pfz.centroid_lon], {
-                    radius: radiusMeters,
-                    color: '#06D6A0',
-                    fillColor: '#06D6A0',
-                    fillOpacity: 0.35, // Increased from 0.2
-                    weight: 3, // Increased from 2
-                    pane: 'pfzPane'
-                }).addTo(pfzGroup);
-                
-                const speciesList = pfz.species_likely ? pfz.species_likely.join(', ') : 'Unknown';
-                circle.bindPopup(`<b>Zone:</b> ${pfz.id}<br><b>Species:</b> ${speciesList}<br><b>Confidence:</b> ${(pfz.confidence*100).toFixed(0)}%`);
-                boundsList.push(circle.getBounds());
-            });
+            const pfzLayer = L.geoJSON(data.pfz_targets, {
+                pane: 'pfzPane',
+                style: function(feature) {
+                    return {
+                        color: '#06D6A0',
+                        weight: 4,
+                        opacity: 0.8
+                    };
+                },
+                onEachFeature: function(feature, layer) {
+                    const props = feature.properties || {};
+                    const sector = props.State_Name || 'Unknown';
+                    const length = props.Length ? parseFloat(props.Length).toFixed(1) : '?';
+                    layer.bindPopup(`<b>PFZ Advisory Line</b><br>Sector: ${sector}<br>Length: ${length} km`);
+                }
+            }).addTo(pfzGroup);
+            
+            if (pfzLayer.getBounds().isValid()) {
+                boundsList.push(pfzLayer.getBounds());
+            }
         }
 
         // Draw Optimized Route
