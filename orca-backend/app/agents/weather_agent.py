@@ -1,15 +1,150 @@
-"""Weather agent — storm and cyclone advisory stubs."""
+"""Weather agent — live marine weather and storm risk assessment via Open-Meteo."""
+
+from __future__ import annotations
+
+import logging
+import os
+from datetime import datetime, timezone
+import httpx
+
+logger = logging.getLogger("orca.agents.weather")
+
+OPEN_METEO_MARINE_URL = os.getenv(
+    "OPEN_METEO_MARINE_URL", "https://marine-api.open-meteo.com/v1/marine"
+)
+OPEN_METEO_WEATHER_URL = os.getenv(
+    "OPEN_METEO_WEATHER_URL", "https://api.open-meteo.com/v1/forecast"
+)
+
+# Thresholds for elevated marine risk
+WAVE_HEIGHT_THRESHOLD_M = 2.5
+WIND_GUST_THRESHOLD_KNOTS = 25.0
+WIND_SPEED_THRESHOLD_KNOTS = 20.0
+REQUEST_TIMEOUT_SECONDS = 8.0
 
 
-def get_storm_status(region_bbox: list[float]) -> dict:
-    """Return mock storm/cyclone status for a bounding box [south, west, north, east]."""
-    return {
-        "source": "MOCK_DATA",
-        "region_bbox": region_bbox,
-        "active": False,
-        "advisories": [],
-        "wind_speed_knots": 12,
-        "visibility_nm": 8,
-        "forecast_window_hrs": 24,
-        "summary": "No active cyclone or storm warnings in this region.",
-    }
+def get_storm_status(region_bbox: list[float] | None = None) -> dict:
+    """Fetch live marine wave and wind conditions from Open-Meteo Marine API.
+
+    Evaluates whether conditions exceed safe operating thresholds for fishing
+    vessels in the given bounding box [south, west, north, east].
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    source_label = f"Open-Meteo Marine API ({now_iso})"
+
+    # Calculate representative centroid for the bounding box
+    if region_bbox and len(region_bbox) == 4:
+        lat = round((region_bbox[0] + region_bbox[2]) / 2.0, 4)
+        lon = round((region_bbox[1] + region_bbox[3]) / 2.0, 4)
+    else:
+        lat = 9.25
+        lon = 79.4
+        region_bbox = [9.0, 79.0, 9.5, 79.8]
+
+    try:
+        with httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+            # 1. Fetch marine wave conditions
+            marine_resp = client.get(
+                OPEN_METEO_MARINE_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "current": [
+                        "wave_height",
+                        "wind_wave_height",
+                        "swell_wave_height",
+                    ],
+                },
+            )
+            marine_resp.raise_for_status()
+            marine_curr = marine_resp.json().get("current", {})
+
+            # 2. Fetch atmospheric wind conditions (in knots)
+            weather_resp = client.get(
+                OPEN_METEO_WEATHER_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "current": ["wind_speed_10m", "wind_gusts_10m"],
+                    "wind_speed_unit": "kn",
+                },
+            )
+            weather_resp.raise_for_status()
+            weather_curr = weather_resp.json().get("current", {})
+
+        wave_height = marine_curr.get("wave_height")
+        wind_wave_height = marine_curr.get("wind_wave_height")
+        swell_wave_height = marine_curr.get("swell_wave_height")
+        wind_speed_knots = weather_curr.get("wind_speed_10m")
+        wind_gusts_knots = weather_curr.get("wind_gusts_10m")
+
+        # Evaluate risk against thresholds
+        advisories: list[str] = []
+        is_elevated_risk = False
+
+        if wave_height is not None and wave_height > WAVE_HEIGHT_THRESHOLD_M:
+            is_elevated_risk = True
+            advisories.append(
+                f"High wave warning: Significant wave height is {wave_height:.2f}m "
+                f"(exceeds safety threshold of {WAVE_HEIGHT_THRESHOLD_M}m)."
+            )
+
+        if wind_gusts_knots is not None and wind_gusts_knots > WIND_GUST_THRESHOLD_KNOTS:
+            is_elevated_risk = True
+            advisories.append(
+                f"Severe wind gust warning: Gusts reaching {wind_gusts_knots:.1f} knots "
+                f"(exceeds safety threshold of {WIND_GUST_THRESHOLD_KNOTS} knots)."
+            )
+        elif wind_speed_knots is not None and wind_speed_knots > WIND_SPEED_THRESHOLD_KNOTS:
+            is_elevated_risk = True
+            advisories.append(
+                f"Strong wind warning: Sustained wind speed reaching {wind_speed_knots:.1f} knots "
+                f"(exceeds safety threshold of {WIND_SPEED_THRESHOLD_KNOTS} knots)."
+            )
+
+        if is_elevated_risk:
+            summary = (
+                f"Elevated marine risk detected near ({lat}, {lon}): "
+                f"waves {wave_height}m, wind gusts {wind_gusts_knots} knots. Caution advised."
+            )
+        else:
+            summary = (
+                f"No active storm warnings near ({lat}, {lon}): "
+                f"wave height {wave_height}m, wind speed {wind_speed_knots} knots "
+                f"(gusts {wind_gusts_knots} knots). Conditions within normal limits."
+            )
+
+        return {
+            "source": source_label,
+            "fetched_at": now_iso,
+            "region_bbox": region_bbox,
+            "evaluated_point": {"latitude": lat, "longitude": lon},
+            "active": is_elevated_risk,
+            "data_unavailable": False,
+            "wave_height_m": wave_height,
+            "wind_wave_height_m": wind_wave_height,
+            "swell_wave_height_m": swell_wave_height,
+            "wind_speed_knots": wind_speed_knots,
+            "wind_gusts_knots": wind_gusts_knots,
+            "advisories": advisories,
+            "forecast_window_hrs": 24,
+            "summary": summary,
+        }
+
+    except Exception as exc:
+        logger.error("Open-Meteo Marine API fetch failed: %s", exc)
+        return {
+            "source": source_label,
+            "fetched_at": now_iso,
+            "region_bbox": region_bbox,
+            "evaluated_point": {"latitude": lat, "longitude": lon},
+            "active": None,
+            "data_unavailable": True,
+            "reason": f"Failed to retrieve marine weather from Open-Meteo: {type(exc).__name__} - {str(exc)}",
+            "wave_height_m": None,
+            "wind_speed_knots": None,
+            "wind_gusts_knots": None,
+            "advisories": ["Live marine weather data is currently unavailable."],
+            "forecast_window_hrs": 24,
+            "summary": "Live marine weather data is currently unavailable due to an API or network issue.",
+        }
