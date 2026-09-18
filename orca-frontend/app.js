@@ -12,47 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
         maxZoom: 19
     }).addTo(map);
 
-    // Create custom panes for smooth CSS transitions
-    const panes = ['weatherPane', 'pfzPane', 'routePane'];
-    panes.forEach((p, idx) => {
+    // Create custom panes for all data layers
+    const allPanes = ['sstPane', 'chlPane', 'eezPane', 'sectorsPane', 'weatherPane', 'pfzPane', 'routePane'];
+    allPanes.forEach(p => {
         map.createPane(p);
-        map.getPane(p).style.zIndex = 400 + idx; // Stack them properly
         map.getPane(p).classList.add('fade-pane');
     });
 
     // FeatureGroups for each data type
+    const eezGroup = L.layerGroup().addTo(map);
+    const sectorsGroup = L.layerGroup().addTo(map);
     const pfzGroup = L.featureGroup().addTo(map);
     const weatherGroup = L.featureGroup().addTo(map);
     const routeGroup = L.featureGroup().addTo(map);
-
-    // Dynamic layer tracking for bounds
-    let currentBounds = null;
-
-    // 2. DOM Elements
-    const chatForm = document.getElementById('chat-form');
-    const chatInput = document.getElementById('chat-input');
-    const chatHistory = document.getElementById('chat-history');
-    const sendBtn = document.getElementById('send-btn');
-    const loadingIndicator = document.getElementById('loading-indicator');
-    
-    const verdictPanel = document.getElementById('verdict-panel');
-    const verdictBadge = document.getElementById('verdict-badge');
-    const verdictReason = document.getElementById('verdict-reason');
-
-    // 2. Setup Custom Panes for Data Layers
-    map.createPane('sstPane');
-    map.createPane('chlPane');
-    map.createPane('eezPane');
-    map.createPane('sectorsPane');
-    map.createPane('weatherPane');
-    map.createPane('pfzPane');
-    map.createPane('routePane');
-    
-    // Add custom class for fade transitions
-    const panes = ['sstPane', 'chlPane', 'eezPane', 'sectorsPane', 'weatherPane', 'pfzPane', 'routePane'];
-    panes.forEach(p => {
-        map.getPane(p).classList.add('fade-pane');
-    });
 
     // WMS Layers
     const sstLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms', {
@@ -69,11 +41,19 @@ document.addEventListener('DOMContentLoaded', () => {
         pane: 'chlPane'
     }).addTo(map);
 
-    const eezGroup = L.layerGroup().addTo(map);
-    const sectorsGroup = L.layerGroup().addTo(map);
-    const pfzGroup = L.layerGroup().addTo(map);
-    const weatherGroup = L.layerGroup().addTo(map);
-    const routeGroup = L.layerGroup().addTo(map);
+    // Dynamic layer tracking for bounds
+    let currentBounds = null;
+
+    // 2. DOM Elements
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatHistory = document.getElementById('chat-history');
+    const sendBtn = document.getElementById('send-btn');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    
+    const verdictPanel = document.getElementById('verdict-panel');
+    const verdictBadge = document.getElementById('verdict-badge');
+    const verdictReason = document.getElementById('verdict-reason');
 
     // Fetch EEZ Boundary
     fetch('https://incois.gov.in/geoserver/PFZ_EEZ/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json&BBOX=79.0,9.0,79.8,9.5')
