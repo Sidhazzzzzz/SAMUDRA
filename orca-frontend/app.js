@@ -200,11 +200,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Handle Data & Update UI
     function handleSystemResponse(data) {
         // A. Update Verdict Panel
-        const overallStatus = data.verdict ? data.verdict.verdict : 'UNKNOWN';
+        const overallStatus = data.verdict ? data.verdict.verdict : (data.status || 'UNKNOWN');
         if (data.verdict) {
             updateVerdictPanel(overallStatus, data.verdict.reason);
         } else {
-            updateVerdictPanel('UNKNOWN', data.abort_reason || 'No verdict evaluated.');
+            updateVerdictPanel(overallStatus, 'Location out of bounds or no verdict evaluated.');
         }
 
         // B. Update Chat History
