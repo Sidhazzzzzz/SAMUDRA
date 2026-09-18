@@ -120,17 +120,32 @@ def plan_fishing_route(
 
     pfz_lines = pfz.get("pfz_lines", [])
     if pfz_lines:
+        from shapely.geometry import Point, MultiLineString
+        from shapely.ops import nearest_points
+        import json
+
         first_pfz = pfz_lines[0]
         geom = first_pfz.get("geometry", {})
-        coords = geom.get("coordinates", [])
         
-        # MultiLineString format: [[[lon, lat], [lon, lat]], ...]
-        dest_lon, dest_lat = _PLACEHOLDER_DEST[1], _PLACEHOLDER_DEST[0] # Default
-        try:
-            if coords and len(coords) > 0 and len(coords[0]) > 0:
-                dest_lon, dest_lat = coords[0][0][0], coords[0][0][1]
-        except (IndexError, TypeError):
-            pass
+        origin_lon, origin_lat = _PLACEHOLDER_ORIGIN[1], _PLACEHOLDER_ORIGIN[0]
+        target_lat, target_lon = _PLACEHOLDER_DEST[0], _PLACEHOLDER_DEST[1]
+        
+        if geom.get("type") == "MultiLineString" and geom.get("coordinates"):
+            try:
+                mls = MultiLineString(geom["coordinates"])
+                origin_point = Point(origin_lon, origin_lat)
+                
+                # Shapely returns (geom_from_p1, geom_from_p2)
+                # We want the point on the MultiLineString (which is arg 2)
+                _, nearest_geom = nearest_points(origin_point, mls)
+                target_lat, target_lon = nearest_geom.y, nearest_geom.x
+                
+                old_lon, old_lat = geom["coordinates"][0][0][0], geom["coordinates"][0][0][1]
+                logger.info(f"Nearest-point fix -> Old: ({old_lat:.4f}, {old_lon:.4f}) | New: ({target_lat:.4f}, {target_lon:.4f})")
+            except Exception as e:
+                logger.error(f"Shapely nearest point failed: {e}")
+        
+        dest_lat, dest_lon = target_lat, target_lon
     else:
         dest_lat, dest_lon = _PLACEHOLDER_DEST[0], _PLACEHOLDER_DEST[1]
         
@@ -403,8 +418,57 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
 # ── Public entry point ─────────────────────────────────────────────────────
 
 
+def get_location_coordinates(query: str) -> tuple[float, float] | None:
+    """Extract location from query and geocode via Nominatim."""
+    from langchain_core.messages import SystemMessage, HumanMessage
+    import urllib.request
+    import urllib.parse
+    messages = [
+        SystemMessage(content="Extract the geographic location name (city, port, region) from the query. Return ONLY the location name. If none, return NONE."),
+        HumanMessage(content=query)
+    ]
+    try:
+        ai, _ = _invoke_with_fallback(messages, bind_tools=False)
+        
+        # Handle list format from Gemini
+        content = ai.content
+        if isinstance(content, list):
+            text_parts = [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
+            place = "".join(text_parts).strip()
+        else:
+            place = str(content).strip()
+            
+        if place.upper() == 'NONE' or not place:
+            return None
+            
+        place_lower = place.lower()
+        if "gulf of mannar" in place_lower or "palk bay" in place_lower:
+            return (9.25, 79.4) # Central valid point
+        
+        url = 'https://nominatim.openstreetmap.org/search?q=' + urllib.parse.quote(place) + '&format=json&limit=1'
+        req = urllib.request.Request(url, headers={'User-Agent': 'ORCA_Maritime_App/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            if data:
+                return float(data[0]['lat']), float(data[0]['lon'])
+    except Exception as e:
+        logger.warning(f"Failed to geocode query location: {e}")
+    return None
+
+
 def handle_query(state: RouteRequestState) -> RouteRequestState:
     """End-to-end pipeline: LLM intent → tool dispatch → deterministic verdict → LLM narration."""
+    # 1. Out-of-bounds / invalid location validation
+    coords = get_location_coordinates(state.user_query)
+    if coords is not None:
+        lat, lon = coords
+        # Box: lat 9.0–9.5, lon 79.0–79.8, plus 0.5 margin -> lat 8.5 to 10.0, lon 78.5 to 80.3
+        if not (8.5 <= lat <= 10.0 and 78.5 <= lon <= 80.3):
+            logger.warning(f"Query out of bounds: {coords} for '{state.user_query}'")
+            state.verdict = None
+            state.final_advisory_text = "This location is outside ORCA's current operational area (Gulf of Mannar / Palk Bay, Tamil Nadu). This demo is scoped to this region and cannot provide marine safety data elsewhere."
+            return state
+
     state = parse_intent_and_dispatch(state)
     if state.abort_reason:
         return state

@@ -39,36 +39,147 @@ document.addEventListener('DOMContentLoaded', () => {
     const verdictBadge = document.getElementById('verdict-badge');
     const verdictReason = document.getElementById('verdict-reason');
 
-    // Toggle controls
+    // 2. Setup Custom Panes for Data Layers
+    map.createPane('sstPane');
+    map.createPane('chlPane');
+    map.createPane('eezPane');
+    map.createPane('sectorsPane');
+    map.createPane('weatherPane');
+    map.createPane('pfzPane');
+    map.createPane('routePane');
+    
+    // Add custom class for fade transitions
+    const panes = ['sstPane', 'chlPane', 'eezPane', 'sectorsPane', 'weatherPane', 'pfzPane', 'routePane'];
+    panes.forEach(p => {
+        map.getPane(p).classList.add('fade-pane');
+    });
+
+    // WMS Layers
+    const sstLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms', {
+        layers: 'PFZ-TUNA-SST-CHL:sst',
+        format: 'image/png',
+        transparent: true,
+        pane: 'sstPane'
+    }).addTo(map);
+
+    const chlLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms', {
+        layers: 'PFZ-TUNA-SST-CHL:chl',
+        format: 'image/png',
+        transparent: true,
+        pane: 'chlPane'
+    }).addTo(map);
+
+    const eezGroup = L.layerGroup().addTo(map);
+    const sectorsGroup = L.layerGroup().addTo(map);
+    const pfzGroup = L.layerGroup().addTo(map);
+    const weatherGroup = L.layerGroup().addTo(map);
+    const routeGroup = L.layerGroup().addTo(map);
+
+    // Fetch EEZ Boundary
+    fetch('https://incois.gov.in/geoserver/PFZ_EEZ/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json&BBOX=79.0,9.0,79.8,9.5')
+        .then(res => res.json())
+        .then(data => {
+            L.geoJSON(data, {
+                pane: 'eezPane',
+                style: {
+                    color: '#FF6B6B',
+                    weight: 3,
+                    dashArray: '10, 15',
+                    opacity: 0.8
+                }
+            }).addTo(eezGroup);
+        }).catch(err => console.error(err));
+
+    // Fetch Sectors
+    fetch('https://incois.gov.in/geoserver/PFZ_Sectors/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json&BBOX=79.0,9.0,79.8,9.5')
+        .then(res => res.json())
+        .then(data => {
+            L.geoJSON(data, {
+                pane: 'sectorsPane',
+                style: {
+                    color: '#A3C4F3',
+                    weight: 1,
+                    fillOpacity: 0.1,
+                    opacity: 0.3
+                },
+                onEachFeature: function(feature, layer) {
+                    if (feature.properties && feature.properties.SECTORNAME) {
+                        layer.bindPopup(`<b>Sector:</b> ${feature.properties.SECTORNAME}`);
+                    }
+                }
+            }).addTo(sectorsGroup);
+        }).catch(err => console.error(err));
+
+    // Toggle logic
     const togglePfz = document.getElementById('toggle-pfz');
     const toggleWeather = document.getElementById('toggle-weather');
     const toggleRoute = document.getElementById('toggle-route');
+    const toggleSst = document.getElementById('toggle-sst');
+    const toggleChl = document.getElementById('toggle-chl');
+    const toggleEez = document.getElementById('toggle-eez');
+    const toggleSectors = document.getElementById('toggle-sectors');
 
-    function syncLayerVisibility(e) {
-        if (e) console.log('Layer toggle clicked:', e.target.id, 'New state:', e.target.checked);
-        
-        const pfzPane = map.getPane('pfzPane');
-        const weatherPane = map.getPane('weatherPane');
-        const routePane = map.getPane('routePane');
-        
-        if (!pfzPane || !weatherPane || !routePane) {
-            console.error('Leaflet panes are missing!');
-            return;
-        }
+    const pfzPane = map.getPane('pfzPane');
+    const weatherPane = map.getPane('weatherPane');
+    const routePane = map.getPane('routePane');
+    const sstPane = map.getPane('sstPane');
+    const chlPane = map.getPane('chlPane');
+    const eezPane = map.getPane('eezPane');
+    const sectorsPane = map.getPane('sectorsPane');
 
+    const legendBox = document.getElementById('legend-box');
+    const legendImg = document.getElementById('legend-img');
+    const legendTitle = document.getElementById('legend-title');
+
+    function syncLayerVisibility() {
         if (togglePfz.checked) pfzPane.classList.remove('hidden-pane');
         else pfzPane.classList.add('hidden-pane');
-
+        
         if (toggleWeather.checked) weatherPane.classList.remove('hidden-pane');
         else weatherPane.classList.add('hidden-pane');
-
+        
         if (toggleRoute.checked) routePane.classList.remove('hidden-pane');
         else routePane.classList.add('hidden-pane');
+
+        if (toggleSst.checked) sstPane.classList.remove('hidden-pane');
+        else sstPane.classList.add('hidden-pane');
+
+        if (toggleChl.checked) chlPane.classList.remove('hidden-pane');
+        else chlPane.classList.add('hidden-pane');
+
+        if (toggleEez.checked) eezPane.classList.remove('hidden-pane');
+        else eezPane.classList.add('hidden-pane');
+
+        if (toggleSectors.checked) sectorsPane.classList.remove('hidden-pane');
+        else sectorsPane.classList.add('hidden-pane');
+
+        if (toggleSst.checked) {
+            legendBox.classList.remove('hidden');
+            legendTitle.textContent = "Sea Surface Temp";
+            legendImg.src = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=PFZ-TUNA-SST-CHL:sst";
+        } else if (toggleChl.checked) {
+            legendBox.classList.remove('hidden');
+            legendTitle.textContent = "Chlorophyll";
+            legendImg.src = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=PFZ-TUNA-SST-CHL:chl";
+        } else {
+            legendBox.classList.add('hidden');
+        }
     }
 
     togglePfz.addEventListener('change', syncLayerVisibility);
     toggleWeather.addEventListener('change', syncLayerVisibility);
     toggleRoute.addEventListener('change', syncLayerVisibility);
+    toggleEez.addEventListener('change', syncLayerVisibility);
+    toggleSectors.addEventListener('change', syncLayerVisibility);
+    
+    toggleSst.addEventListener('change', () => {
+        if (toggleSst.checked) toggleChl.checked = false;
+        syncLayerVisibility();
+    });
+    toggleChl.addEventListener('change', () => {
+        if (toggleChl.checked) toggleSst.checked = false;
+        syncLayerVisibility();
+    });
 
     // 3. Chat Form Submit
     chatForm.addEventListener('submit', async (e) => {

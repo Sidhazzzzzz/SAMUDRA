@@ -357,9 +357,37 @@ body {
 }
 
 /* Explicit z-index for custom panes to guarantee they render over the basemap (z-index 200) */
+.leaflet-sstPane-pane     { z-index: 410 !important; }
+.leaflet-chlPane-pane     { z-index: 420 !important; }
+.leaflet-eezPane-pane     { z-index: 430 !important; }
+.leaflet-sectorsPane-pane { z-index: 440 !important; }
 .leaflet-weatherPane-pane { z-index: 450 !important; }
 .leaflet-pfzPane-pane     { z-index: 460 !important; }
 .leaflet-routePane-pane   { z-index: 470 !important; }
+
+.floating-legend {
+    position: absolute;
+    bottom: 30px;
+    left: 20px;
+    z-index: 1000;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--accent-marine);
+    border-radius: 4px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+}
+.floating-legend.hidden {
+    display: none;
+}
+.floating-legend img {
+    margin-top: 5px;
+    max-height: 250px;
+    background-color: #fff; /* To make the legend legible if it has transparent/dark text */
+    padding: 5px;
+    border-radius: 2px;
+}
 
 /* Badge Pulse Animations */
 @keyframes pulse-caution {
