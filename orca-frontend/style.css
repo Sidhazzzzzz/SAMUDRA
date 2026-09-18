@@ -353,8 +353,13 @@ body {
 
 .hidden-pane {
     opacity: 0 !important;
-    pointer-events: none;
+    pointer-events: none !important;
 }
+
+/* Explicit z-index for custom panes to guarantee they render over the basemap (z-index 200) */
+.leaflet-weatherPane-pane { z-index: 450 !important; }
+.leaflet-pfzPane-pane     { z-index: 460 !important; }
+.leaflet-routePane-pane   { z-index: 470 !important; }
 
 /* Badge Pulse Animations */
 @keyframes pulse-caution {

@@ -44,15 +44,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleWeather = document.getElementById('toggle-weather');
     const toggleRoute = document.getElementById('toggle-route');
 
-    function syncLayerVisibility() {
-        if (togglePfz.checked) map.getPane('pfzPane').classList.remove('hidden-pane');
-        else map.getPane('pfzPane').classList.add('hidden-pane');
+    function syncLayerVisibility(e) {
+        if (e) console.log('Layer toggle clicked:', e.target.id, 'New state:', e.target.checked);
+        
+        const pfzPane = map.getPane('pfzPane');
+        const weatherPane = map.getPane('weatherPane');
+        const routePane = map.getPane('routePane');
+        
+        if (!pfzPane || !weatherPane || !routePane) {
+            console.error('Leaflet panes are missing!');
+            return;
+        }
 
-        if (toggleWeather.checked) map.getPane('weatherPane').classList.remove('hidden-pane');
-        else map.getPane('weatherPane').classList.add('hidden-pane');
+        if (togglePfz.checked) pfzPane.classList.remove('hidden-pane');
+        else pfzPane.classList.add('hidden-pane');
 
-        if (toggleRoute.checked) map.getPane('routePane').classList.remove('hidden-pane');
-        else map.getPane('routePane').classList.add('hidden-pane');
+        if (toggleWeather.checked) weatherPane.classList.remove('hidden-pane');
+        else weatherPane.classList.add('hidden-pane');
+
+        if (toggleRoute.checked) routePane.classList.remove('hidden-pane');
+        else routePane.classList.add('hidden-pane');
     }
 
     togglePfz.addEventListener('change', syncLayerVisibility);
@@ -139,8 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 L.rectangle(rectBounds, {
                     color: rectColor,
                     fillColor: fillColor,
-                    fillOpacity: 0.15,
-                    weight: 2,
+                    fillOpacity: 0.25, // Increased for better contrast
+                    weight: 3, // Increased from 2
                     pane: 'weatherPane'
                 }).addTo(weatherGroup).bindPopup(`<b>Weather Bounds</b><br>Active Storm: ${weather.active}<br>Wave Height: ${weather.wave_height_m}m`);
                 boundsList.push(L.rectangle(rectBounds).getBounds());
@@ -155,8 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     radius: radiusMeters,
                     color: '#06D6A0',
                     fillColor: '#06D6A0',
-                    fillOpacity: 0.2,
-                    weight: 2,
+                    fillOpacity: 0.35, // Increased from 0.2
+                    weight: 3, // Increased from 2
                     pane: 'pfzPane'
                 }).addTo(pfzGroup);
                 
@@ -172,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const routeLine = L.polyline(latlngs, {
                 color: '#FFD166',
-                weight: 4,
+                weight: 5, // Increased from 4
                 dashArray: '5, 10',
                 lineJoin: 'round',
                 pane: 'routePane'
