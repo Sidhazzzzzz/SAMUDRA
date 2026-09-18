@@ -342,7 +342,7 @@ def handle_query(state: RouteRequestState) -> RouteRequestState:
     weather_data = state.weather_risks[0] if state.weather_risks else None
     if weather_data is None:
         bbox = list(state.bounding_box) if state.bounding_box else _DEFAULT_BBOX
-        weather_data = get_storm_status(bbox)
+        weather_data = get_storm_status.invoke({"region_bbox": bbox})
         state.weather_risks = [weather_data]
 
     pfz_data = {"pfz_zones": state.pfz_targets} if state.pfz_targets else None

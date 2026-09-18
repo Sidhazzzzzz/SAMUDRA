@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.schemas import RouteRequestState
@@ -12,6 +13,15 @@ app = FastAPI(
     title="ORCA — Maritime Decision-Support System",
     version="0.1.0",
     description="Agentic backend for fishing-route planning, PFZ lookup, and storm advisories.",
+)
+
+# Allow CORS for local frontend development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
