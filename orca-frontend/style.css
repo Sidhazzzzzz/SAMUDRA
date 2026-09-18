@@ -304,3 +304,80 @@ body {
 .leaflet-container a.leaflet-popup-close-button {
     color: var(--text-muted);
 }
+
+/* Floating Controls */
+.floating-controls {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--accent-marine);
+    border-radius: 4px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-family: var(--font-body);
+}
+
+.controls-title {
+    font-family: var(--font-heading);
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+    color: var(--text-muted);
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    color: var(--text-main);
+}
+
+.toggle-label input[type="checkbox"] {
+    accent-color: var(--accent-marine);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Pane fade transitions */
+.fade-pane {
+    transition: opacity 0.3s ease-in-out;
+    opacity: 1;
+}
+
+.hidden-pane {
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
+/* Badge Pulse Animations */
+@keyframes pulse-caution {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes pulse-nogo {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+.status-caution .badge {
+    animation: pulse-caution 1.5s infinite ease-in-out;
+    display: inline-block; /* Required for transform scale to work properly */
+}
+
+.status-nogo .badge {
+    animation: pulse-nogo 1s infinite ease-in-out;
+    display: inline-block;
+}
+
+/* Water hue shift for dark matter to make it more distinctively navy */
+.leaflet-tile-pane {
+    filter: sepia(30%) hue-rotate(180deg) saturate(250%) brightness(85%) contrast(110%);
+}
