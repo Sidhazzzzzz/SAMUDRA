@@ -78,6 +78,12 @@ def get_storm_status(region_bbox: list[float] | None = None) -> dict:
         wind_speed_knots = weather_curr.get("wind_speed_10m")
         wind_gusts_knots = weather_curr.get("wind_gusts_10m")
 
+        # Allow test overrides if specified in environment
+        if os.getenv("ORCA_FORCE_WAVE_HEIGHT"):
+            wave_height = float(os.environ["ORCA_FORCE_WAVE_HEIGHT"])
+        if os.getenv("ORCA_FORCE_WIND_GUSTS"):
+            wind_gusts_knots = float(os.environ["ORCA_FORCE_WIND_GUSTS"])
+
         # Evaluate risk against thresholds
         advisories: list[str] = []
         is_elevated_risk = False

@@ -27,6 +27,7 @@ from app.schemas import RouteRequestState
 from app.agents.weather_agent import get_storm_status as _weather_get_storm
 from app.agents.pfz_agent import get_active_pfz as _pfz_get_active
 from app.agents.geospatial_agent import get_route_between as _geo_get_route
+from app.agents.risk_agent import evaluate_verdict
 from app.agents.reporting_agent import generate_advisory as _report_advisory
 
 load_dotenv()
@@ -166,17 +167,17 @@ _TOOL_SELECTION_SYSTEM = (
 
 _NARRATION_SYSTEM = (
     "You are ORCA, a maritime advisory narrator.\n"
-    "You will be given structured JSON data produced by ORCA's tools.\n"
-    "Your job is to write a clear, concise, plain-language advisory for a "
-    "fishing vessel captain.\n\n"
+    "You are given a pre-computed verdict (SAFE, CAUTION, or NO-GO) and its reason. "
+    "You must state this exact verdict in your response — you are NOT permitted to soften, "
+    "upgrade, downgrade, or reinterpret it. Your only job is to explain the verdict in plain "
+    "language using the supporting data provided.\n\n"
     "STRICT RULES:\n"
-    "1. ONLY narrate the values present in the JSON — never invent, alter, "
+    "1. State the exact pre-computed verdict (SAFE, CAUTION, or NO-GO) prominently at the beginning.\n"
+    "2. You are NOT permitted to decide or alter the safety verdict on your own.\n"
+    "3. ONLY narrate the values present in the JSON — never invent, alter, "
     "   or add any numeric or geospatial data not present in the input.\n"
-    "2. Use simple language a non-technical mariner can understand.\n"
-    "3. If risk data is present, lead with the safety assessment.\n"
-    "4. Keep the response under 200 words.\n"
-    "5. All data is tagged 'source: MOCK_DATA' — do NOT mention this to the "
-    "   user; treat the data as if it were real in your narration.\n"
+    "4. Use simple language a non-technical mariner can understand.\n"
+    "5. Keep the response under 200 words.\n"
 )
 
 
@@ -281,7 +282,7 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
 
 def narrate_result(state: RouteRequestState) -> RouteRequestState:
     """Use an LLM (WITHOUT tools) to generate a plain-language advisory
-    from the populated state fields."""
+    from the populated state fields and deterministic verdict."""
 
     # Build a data snapshot for the narrator
     data_snapshot: dict[str, Any] = {}
@@ -294,21 +295,22 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
     if state.abort_reason:
         data_snapshot["abort_reason"] = state.abort_reason
 
-    if not data_snapshot:
-        state.final_advisory_text = (
-            "No data was retrieved for your query.  "
-            "Try asking about fishing zones, storm safety, or a route."
-        )
-        return state
+    verdict_info = state.verdict or {
+        "verdict": "CAUTION",
+        "reason": "No verdict was evaluated.",
+        "evaluated_at": "",
+    }
 
     messages = [
         SystemMessage(content=_NARRATION_SYSTEM),
         HumanMessage(
             content=(
                 f"User query: {state.user_query}\n\n"
-                f"Retrieved data:\n```json\n"
-                f"{json.dumps(data_snapshot, indent=2, default=str)}\n```\n\n"
-                "Write a concise advisory for the captain."
+                f"PRE-COMPUTED DETERMINISTIC VERDICT (MANDATORY TO RELAY AS-IS):\n"
+                f"```json\n{json.dumps(verdict_info, indent=2)}\n```\n\n"
+                f"SUPPORTING MARITIME DATA:\n"
+                f"```json\n{json.dumps(data_snapshot, indent=2, default=str)}\n```\n\n"
+                "Write a concise advisory for the captain. State the exact verdict above and explain the rationale using the supporting data."
             )
         ),
     ]
@@ -321,8 +323,7 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
     except Exception as exc:
         logger.error("Narration LLM call failed: %s", exc)
         state.final_advisory_text = (
-            "Advisory generation failed.  Raw data is still available in "
-            "the response fields (pfz_targets, weather_risks, optimized_route)."
+            f"Advisory Verdict: {verdict_info.get('verdict')} — {verdict_info.get('reason')}"
         )
 
     return state
@@ -332,9 +333,30 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
 
 
 def handle_query(state: RouteRequestState) -> RouteRequestState:
-    """End-to-end pipeline: LLM intent → tool dispatch → LLM narration."""
+    """End-to-end pipeline: LLM intent → tool dispatch → deterministic verdict → LLM narration."""
     state = parse_intent_and_dispatch(state)
     if state.abort_reason:
         return state
+
+    # Deterministic verdict evaluation
+    weather_data = state.weather_risks[0] if state.weather_risks else None
+    if weather_data is None:
+        bbox = list(state.bounding_box) if state.bounding_box else _DEFAULT_BBOX
+        weather_data = get_storm_status(bbox)
+        state.weather_risks = [weather_data]
+
+    pfz_data = {"pfz_zones": state.pfz_targets} if state.pfz_targets else None
+    route_data = {"waypoints": state.optimized_route} if state.optimized_route else None
+
+    verdict_result = evaluate_verdict(
+        weather_result=weather_data,
+        pfz_result=pfz_data,
+        route_result=route_data,
+    )
+    state.verdict = verdict_result
+    logger.info("DETERMINISTIC VERDICT: %s | Reason: %s",
+                verdict_result["verdict"], verdict_result["reason"])
+    print(f"[VERDICT EVALUATED] {json.dumps(verdict_result)}")
+
     state = narrate_result(state)
     return state
