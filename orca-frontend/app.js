@@ -161,6 +161,9 @@ document.addEventListener('DOMContentLoaded', () => {
         syncLayerVisibility();
     });
 
+    // Initialize visibility state on page load
+    syncLayerVisibility();
+
     // 3. Chat Form Submit
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
