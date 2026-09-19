@@ -136,11 +136,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (toggleSst.checked) {
             legendBox.classList.remove('hidden');
             legendTitle.textContent = "Sea Surface Temp";
-            legendImg.src = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=PFZ-TUNA-SST-CHL:sst";
+            legendImg.src = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=PFZ-TUNA-SST-CHL:sst&LEGEND_OPTIONS=fontAntiAliasing:true;dpi:120";
         } else if (toggleChl.checked) {
             legendBox.classList.remove('hidden');
             legendTitle.textContent = "Chlorophyll";
-            legendImg.src = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=PFZ-TUNA-SST-CHL:chl";
+            legendImg.src = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=PFZ-TUNA-SST-CHL:chl&LEGEND_OPTIONS=fontAntiAliasing:true;dpi:120";
         } else {
             legendBox.classList.add('hidden');
         }
@@ -232,11 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let gradientObj;
                 if (weather.active || overallStatus === 'NO-GO') {
-                    gradientObj = {0.2: 'rgba(239,71,111,0)', 0.5: '#EF476F', 1.0: '#EF476F'};
+                    gradientObj = {0.0: 'rgba(239,71,111,0)', 0.1: '#EF476F', 1.0: '#EF476F'};
                 } else if (overallStatus === 'CAUTION') {
-                    gradientObj = {0.2: 'rgba(255,209,102,0)', 0.5: '#FFD166', 1.0: '#FFD166'};
+                    gradientObj = {0.0: 'rgba(255,209,102,0)', 0.1: '#FFD166', 1.0: '#FFD166'};
                 } else {
-                    gradientObj = {0.2: 'rgba(6,214,160,0)', 0.5: '#06D6A0', 1.0: '#06D6A0'};
+                    gradientObj = {0.0: 'rgba(6,214,160,0)', 0.1: '#06D6A0', 1.0: '#06D6A0'};
                 }
 
                 // Generate a grid of points to fill the bbox smoothly across zoom levels
@@ -246,7 +246,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const lat = minLat + (maxLat - minLat) * (i / steps);
                     for(let j=0; j<=steps; j++) {
                         const lon = minLon + (maxLon - minLon) * (j / steps);
-                        heatPoints.push([lat, lon, weather.wave_height_m || 1.0]);
+                        // Force a massive intensity (1000) to override Leaflet.heat's aggressive zoom-based intensity suppression
+                        heatPoints.push([lat, lon, 1000.0]);
                     }
                 }
 
