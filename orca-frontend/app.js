@@ -221,9 +221,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Handle Data & Update UI
     function handleSystemResponse(data) {
-        // Update System Trace
+        // Store lastState for PDF export
+        window.lastState = data;
+        const exportBtn = document.getElementById('export-btn');
+        if (exportBtn) exportBtn.classList.remove('hidden');
+
+        // Update System Trace & Freshness
         if (data.execution_trace) {
             updateTracePanel(data.execution_trace);
+            
+            const freshnessInd = document.getElementById('freshness-indicator');
+            if (freshnessInd) {
+                freshnessInd.classList.remove('hidden', 'freshness-live', 'freshness-fallback', 'freshness-error');
+                const hasError = data.execution_trace.some(t => t.source_type === 'error');
+                const hasFallback = data.execution_trace.some(t => t.source_type === 'fallback' || t.source_type === 'mock');
+                
+                if (hasError) {
+                    freshnessInd.textContent = 'DATA ERROR';
+                    freshnessInd.classList.add('freshness-error');
+                } else if (hasFallback) {
+                    freshnessInd.textContent = 'USING FALLBACK DATA';
+                    freshnessInd.classList.add('freshness-fallback');
+                } else {
+                    freshnessInd.textContent = 'LIVE DATA';
+                    freshnessInd.classList.add('freshness-live');
+                }
+            }
         }
 
         // A. Update Verdict Panel
@@ -476,5 +499,44 @@ document.addEventListener('DOMContentLoaded', () => {
             li.appendChild(header);
             li.appendChild(summaryDiv);
             traceList.appendChild(li);
+        });
+    }
+
+
+    // PDF Export Logic
+    const exportBtn = document.getElementById('export-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', async () => {
+            if (!window.lastState) return;
+            
+            const originalText = exportBtn.textContent;
+            exportBtn.textContent = 'Generating PDF...';
+            exportBtn.disabled = true;
+            
+            try {
+                const response = await fetch('http://localhost:8000/export-pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(window.lastState)
+                });
+                
+                if (!response.ok) throw new Error('PDF export failed');
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `ORCA_Advisory_${new Date().getTime()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error(err);
+                alert('Failed to export PDF.');
+            } finally {
+                exportBtn.textContent = originalText;
+                exportBtn.disabled = false;
+            }
         });
     }

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.schemas import RouteRequestState
 from app.orchestrator import handle_query
+from app.agents.reporting_agent import generate_pdf_advisory
 
 app = FastAPI(
     title="ORCA — Maritime Decision-Support System",
@@ -44,3 +45,8 @@ async def query(body: QueryRequest) -> RouteRequestState:
     state = RouteRequestState(user_query=body.user_query, mode=body.mode)
     result = handle_query(state)
     return result
+
+@app.post("/export-pdf")
+async def export_pdf(body: dict):
+    pdf_bytes = generate_pdf_advisory(body)
+    return Response(content=pdf_bytes, media_type="application/pdf")

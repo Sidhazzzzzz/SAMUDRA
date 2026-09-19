@@ -544,3 +544,31 @@ body {
 .trace-item.source-llm .trace-item-header {
     color: #9C27B0;
 }
+
+.trace-item.source-error {
+    border-left-color: #FF5722;
+}
+.trace-item.source-error .trace-item-header {
+    color: #FF5722;
+}
+.freshness-indicator {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+.freshness-live {
+    background-color: #4CAF50;
+    color: #fff;
+}
+.freshness-fallback {
+    background-color: #FF9800;
+    color: #fff;
+}
+.freshness-error {
+    background-color: #F44336;
+    color: #fff;
+}

@@ -352,26 +352,37 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
             continue
 
         t0_tool = time.time()
-        result = _TOOL_MAP[tool_name].invoke(tool_args)
-        
-        # Determine source type and summary dynamically
-        source_type = "live"
-        summary = f"Executed {tool_name} successfully."
-        
-        # Simple heuristic for fallback detection in result
-        if isinstance(result, dict) and "source" in result:
-            if "FALLBACK" in result["source"].upper() or "MOCK" in result["source"].upper():
+        try:
+            result = _TOOL_MAP[tool_name].invoke(tool_args)
+            
+            # Direct read of source field
+            source_type = "live"
+            raw_source = ""
+            if isinstance(result, dict) and "source" in result:
+                raw_source = str(result["source"])
+            elif tool_name in ["plan_fishing_route", "plan_commercial_route"]:
+                raw_source = result.get("source", "")
+                
+            if "MOCK_DATA" in raw_source.upper():
+                source_type = "mock"
+            elif "LOCAL_FALLBACK_SNAPSHOT" in raw_source.upper():
                 source_type = "fallback"
             
-        if tool_name == "get_active_pfz":
-            summary = f"Fetched {len(result.get('pfz_lines', []))} PFZ lines (sector: {result.get('sector')})."
-        elif tool_name == "get_storm_status":
-            summary = f"Fetched weather status: {result.get('summary', 'OK')}"
-        elif tool_name in ["get_route_between", "plan_fishing_route", "plan_commercial_route"]:
-            waypoints = result.get("waypoints", [])
-            summary = f"Calculated route with {len(waypoints)} waypoints."
-            
-        append_trace(state, f"tool_execution: {tool_name}", t0_tool, summary, source_type)
+            summary = f"Executed {tool_name} successfully."
+            if tool_name == "get_active_pfz":
+                summary = f"Fetched {len(result.get('pfz_lines', []))} PFZ lines, source={source_type}"
+            elif tool_name == "get_storm_status":
+                summary = f"Fetched weather status, source={source_type}"
+            elif tool_name in ["get_route_between", "plan_fishing_route", "plan_commercial_route"]:
+                waypoints = result.get("waypoints", [])
+                summary = f"Calculated route with {len(waypoints)} waypoints, source={source_type}"
+                
+            append_trace(state, f"tool_execution: {tool_name}", t0_tool, summary, source_type)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("Tool execution failed: %s", exc)
+            append_trace(state, f"tool_execution: {tool_name}", t0_tool, f"Tool failed: {exc}", "error")
+            continue
 
         # ── Populate state based on which tool was called ──────────────
         if tool_name == "get_active_pfz":
