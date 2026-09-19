@@ -2,13 +2,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Initialize Map
     // Centered on Gulf of Mannar bounding box (lat 9.0–9.5, lon 79.0–79.8)
     const map = L.map('map', {
-        zoomControl: false // Move it if needed, or leave default
-    }).setView([9.25, 79.4], 10);
+        zoomControl: false,
+        attributionControl: false
+    }).setView([10.0, 79.5], 7);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     // Use Esri World Imagery for a genuine satellite/dark-ocean maritime aesthetic
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
         maxZoom: 19
     }).addTo(map);
 
@@ -232,11 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let gradientObj;
                 if (weather.active || overallStatus === 'NO-GO') {
-                    gradientObj = {0.2: 'transparent', 0.5: '#EF476F', 1.0: '#EF476F'};
+                    gradientObj = {0.2: 'rgba(239,71,111,0)', 0.5: '#EF476F', 1.0: '#EF476F'};
                 } else if (overallStatus === 'CAUTION') {
-                    gradientObj = {0.2: 'transparent', 0.5: '#FFD166', 1.0: '#FFD166'};
+                    gradientObj = {0.2: 'rgba(255,209,102,0)', 0.5: '#FFD166', 1.0: '#FFD166'};
                 } else {
-                    gradientObj = {0.2: 'transparent', 0.5: '#06D6A0', 1.0: '#06D6A0'};
+                    gradientObj = {0.2: 'rgba(6,214,160,0)', 0.5: '#06D6A0', 1.0: '#06D6A0'};
                 }
 
                 // Generate a grid of points to fill the bbox smoothly across zoom levels
