@@ -10,6 +10,42 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+def get_nearest_landing_centre(origin_lat: float, origin_lon: float) -> tuple[dict | None, str | None]:
+    url_lc = "https://incois.gov.in/geoserver/PFZ_LandingCentres/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_LandingCentres:LandingCenters_29Apr2024&outputFormat=application/json"
+    nearest_lc = None
+    min_dist = float('inf')
+    updated_date = None
+    try:
+        req = urllib.request.Request(url_lc, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=15) as response:
+            lc_data = json.loads(response.read().decode('utf-8'))
+            for f in lc_data.get('features', []):
+                p = f.get('properties', {})
+                lc_lat = p.get('LATITUDE')
+                lc_lon = p.get('LONGITUDE')
+                if lc_lat is not None and lc_lon is not None:
+                    dist = haversine(origin_lat, origin_lon, float(lc_lat), float(lc_lon))
+                    if dist < min_dist:
+                        min_dist = dist
+                        nearest_lc = p
+    except Exception as e:
+        print(f"Error fetching Landing Centres: {e}")
+
+    lc_info = None
+    if nearest_lc:
+        lc_info = {
+            "LC_NAME": nearest_lc.get("LC_NAME"),
+            "DIRECTION": nearest_lc.get("DIRECTION"),
+            "BEARING": nearest_lc.get("BEARING"),
+            "DISTANCE_F": nearest_lc.get("DISTANCE_F"),
+            "DISTANCE_T": nearest_lc.get("DISTANCE_T"),
+            "DEPTH_FROM": nearest_lc.get("DEPTH_FROM"),
+            "DEPTH_TO": nearest_lc.get("DEPTH_TO")
+        }
+        updated_date = nearest_lc.get("UPDATED_DA")
+    
+    return lc_info, updated_date
+
 def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_lon: float = 79.3129) -> dict:
     """Return real PFZ advisories for a bounding box [south, west, north, east]."""
     south, west, north, east = region_bbox
@@ -58,41 +94,7 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
     jday = props.get('Julian_day')
     
     # 2. Fetch nearest Landing Centre
-    url_lc = "https://incois.gov.in/geoserver/PFZ_LandingCentres/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_LandingCentres:LandingCenters_29Apr2024&outputFormat=application/json"
-    
-    nearest_lc = None
-    min_dist = float('inf')
-    updated_date = None
-    
-    try:
-        req = urllib.request.Request(url_lc, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=15) as response:
-            lc_data = json.loads(response.read().decode('utf-8'))
-            for f in lc_data.get('features', []):
-                p = f.get('properties', {})
-                lc_lat = p.get('LATITUDE')
-                lc_lon = p.get('LONGITUDE')
-                if lc_lat is not None and lc_lon is not None:
-                    dist = haversine(origin_lat, origin_lon, float(lc_lat), float(lc_lon))
-                    if dist < min_dist:
-                        min_dist = dist
-                        nearest_lc = p
-    except Exception as e:
-        print(f"Error fetching Landing Centres: {e}")
-
-    if nearest_lc:
-        lc_info = {
-            "LC_NAME": nearest_lc.get("LC_NAME"),
-            "DIRECTION": nearest_lc.get("DIRECTION"),
-            "BEARING": nearest_lc.get("BEARING"),
-            "DISTANCE_F": nearest_lc.get("DISTANCE_F"),
-            "DISTANCE_T": nearest_lc.get("DISTANCE_T"),
-            "DEPTH_FROM": nearest_lc.get("DEPTH_FROM"),
-            "DEPTH_TO": nearest_lc.get("DEPTH_TO")
-        }
-        updated_date = nearest_lc.get("UPDATED_DA")
-    else:
-        lc_info = None
+    lc_info, updated_date = get_nearest_landing_centre(origin_lat, origin_lon)
 
     # 3. Fetch SST and CHL
     s_bbox = f"{origin_lon-0.05},{origin_lat-0.05},{origin_lon+0.05},{origin_lat+0.05}"

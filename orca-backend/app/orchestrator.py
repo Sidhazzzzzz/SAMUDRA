@@ -466,7 +466,46 @@ def get_location_coordinates(query: str) -> tuple[float, float] | None:
     return None
 
 def handle_query(state: RouteRequestState) -> RouteRequestState:
-    """End-to-end pipeline: LLM intent → tool dispatch → deterministic verdict → LLM narration."""
+    """End-to-end pipeline: LLM intent -> tool dispatch -> deterministic verdict -> LLM narration."""
+    
+    # 0. Deterministic pre-LLM distress detection
+    # NOTE: This is keyword-based detection only, in English, and does not yet cover regional-language distress phrases or voice input - this is a known, stated limitation, not a claimed complete safety net.
+    DISTRESS_KEYWORDS = [
+        "mayday", "sos", "sinking", "capsized", "capsizing", "man overboard", 
+        "drowning", "taking water", "engine failure adrift", "distress", 
+        "emergency", "help us", "boat sinking", "losing control"
+    ]
+    query_lower = state.user_query.lower()
+    if any(kw in query_lower for kw in DISTRESS_KEYWORDS):
+        logger.warning(f"Distress detected in query: '{state.user_query}'")
+        
+        bearing_guidance = ""
+        try:
+            # Try to quickly resolve location to give return bearing, but suppress failures
+            coords = get_location_coordinates(state.user_query)
+            if coords is not None:
+                lat, lon = coords
+                from app.agents.pfz_agent import get_nearest_landing_centre
+                lc_info, _ = get_nearest_landing_centre(lat, lon)
+                if lc_info and lc_info.get("LC_NAME"):
+                    bearing = lc_info.get("BEARING", "?")
+                    dist_km = lc_info.get("DISTANCE_F", "?")
+                    bearing_guidance = f"\n\nBased on your location, the nearest registered landing centre is {lc_info['LC_NAME']} at bearing {bearing}° ({dist_km} km)."
+        except Exception as e:
+            logger.error(f"Error resolving location for distress guidance: {e}")
+
+        state.status = "DISTRESS_DETECTED"
+        state.verdict = None
+        state.final_advisory_text = (
+            "EMERGENCY DETECTED.\n\n"
+            "This system is an advisory tool and has NO integration with telecom or local authorities. No emergency dispatch has been made.\n\n"
+            "FOR IMMEDIATE ASSISTANCE, CALL:\n"
+            "* Indian Coast Guard: 1554\n"
+            "* National Emergency: 112"
+            f"{bearing_guidance}"
+        )
+        return state
+
     # 1. Out-of-bounds / invalid location validation
     coords = get_location_coordinates(state.user_query)
     

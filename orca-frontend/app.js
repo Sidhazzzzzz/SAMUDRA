@@ -373,11 +373,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateVerdictPanel(statusStr, reasonText) {
-        verdictPanel.classList.remove('status-safe', 'status-caution', 'status-nogo', 'status-unknown');
+        verdictPanel.classList.remove('status-safe', 'status-caution', 'status-nogo', 'status-unknown', 'status-distress');
         
         const status = statusStr ? statusStr.toUpperCase() : 'UNKNOWN';
         
-        if (status === 'SAFE') {
+        if (status === 'DISTRESS_DETECTED') {
+            verdictPanel.classList.add('status-distress');
+        } else if (status === 'SAFE') {
             verdictPanel.classList.add('status-safe');
         } else if (status === 'CAUTION') {
             verdictPanel.classList.add('status-caution');
@@ -387,8 +389,8 @@ document.addEventListener('DOMContentLoaded', () => {
             verdictPanel.classList.add('status-unknown');
         }
 
-        verdictBadge.textContent = status;
-        verdictReason.textContent = reasonText || 'No details provided.';
+        verdictBadge.textContent = status === 'DISTRESS_DETECTED' ? 'EMERGENCY' : status;
+        verdictReason.innerHTML = marked.parse(reasonText || 'No details provided.');
     }
 
     function setLoading(isLoading) {

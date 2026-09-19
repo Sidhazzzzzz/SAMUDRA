@@ -412,3 +412,25 @@ body {
 
 . w e a t h e r - b l o b   {   f i l t e r :   b l u r ( 3 0 p x ) ;   }  
  
+ . s t a t u s - d i s t r e s s   { 
+         b a c k g r o u n d - c o l o r :   # D 9 0 4 2 9   ! i m p o r t a n t ;   / *   B r i g h t   e m e r g e n c y   r e d   * / 
+         c o l o r :   # F F F F F F   ! i m p o r t a n t ; 
+         b o r d e r - b o t t o m :   5 p x   s o l i d   # 8 D 0 8 0 1   ! i m p o r t a n t ; 
+         a n i m a t i o n :   f l a s h - d i s t r e s s   1 . 5 s   i n f i n i t e   a l t e r n a t e ; 
+ } 
+ . s t a t u s - d i s t r e s s   # v e r d i c t - b a d g e   { 
+         b a c k g r o u n d - c o l o r :   # F F F F F F ; 
+         c o l o r :   # D 9 0 4 2 9 ; 
+         f o n t - w e i g h t :   8 0 0 ; 
+         l e t t e r - s p a c i n g :   2 p x ; 
+ } 
+ . s t a t u s - d i s t r e s s   # v e r d i c t - r e a s o n   { 
+         f o n t - s i z e :   1 . 1 e m ; 
+         f o n t - w e i g h t :   b o l d ; 
+ } 
+ @ k e y f r a m e s   f l a s h - d i s t r e s s   { 
+         0 %   {   b a c k g r o u n d - c o l o r :   # D 9 0 4 2 9 ;   } 
+         1 0 0 %   {   b a c k g r o u n d - c o l o r :   # 9 A 0 3 1 E ;   } 
+ } 
+  
+ 
