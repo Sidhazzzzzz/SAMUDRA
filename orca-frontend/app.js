@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const verdictReason = document.getElementById('verdict-reason');
 
     // Fetch EEZ Boundary
-    fetch('https://incois.gov.in/geoserver/PFZ_EEZ/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json&BBOX=79.0,9.0,79.8,9.5')
+    fetch('https://incois.gov.in/geoserver/PFZ_EEZ/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json')
         .then(res => res.json())
         .then(data => {
             L.geoJSON(data, {
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).catch(err => console.error(err));
 
     // Fetch Sectors
-    fetch('https://incois.gov.in/geoserver/PFZ_Sectors/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json&BBOX=79.0,9.0,79.8,9.5')
+    fetch('https://incois.gov.in/geoserver/PFZ_Sectors/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json')
         .then(res => res.json())
         .then(data => {
             L.geoJSON(data, {
@@ -230,24 +230,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 const [minLat, minLon, maxLat, maxLon] = weather.region_bbox;
                 const rectBounds = [[minLat, minLon], [maxLat, maxLon]];
                 
-                let rectColor = '#06D6A0'; // Default safe green
-                let fillColor = '#06D6A0';
-                
+                let gradientObj;
                 if (weather.active || overallStatus === 'NO-GO') {
-                    rectColor = '#EF476F';
-                    fillColor = '#EF476F';
+                    gradientObj = {0.2: 'transparent', 0.5: '#EF476F', 1.0: '#EF476F'};
                 } else if (overallStatus === 'CAUTION') {
-                    rectColor = '#FFD166';
-                    fillColor = '#FFD166';
+                    gradientObj = {0.2: 'transparent', 0.5: '#FFD166', 1.0: '#FFD166'};
+                } else {
+                    gradientObj = {0.2: 'transparent', 0.5: '#06D6A0', 1.0: '#06D6A0'};
                 }
 
+                // Generate a grid of points to fill the bbox smoothly across zoom levels
+                const heatPoints = [];
+                const steps = 4;
+                for(let i=0; i<=steps; i++) {
+                    const lat = minLat + (maxLat - minLat) * (i / steps);
+                    for(let j=0; j<=steps; j++) {
+                        const lon = minLon + (maxLon - minLon) * (j / steps);
+                        heatPoints.push([lat, lon, weather.wave_height_m || 1.0]);
+                    }
+                }
+
+                // Draw the soft gradient heat layer
+                L.heatLayer(heatPoints, {
+                    radius: 50,
+                    blur: 50,
+                    maxZoom: 14,
+                    gradient: gradientObj,
+                    pane: 'weatherPane'
+                }).addTo(weatherGroup);
+
+                // Add an invisible rectangle over the same bounds to preserve the click-to-popup behavior
                 L.rectangle(rectBounds, {
-                    color: rectColor,
-                    fillColor: fillColor,
-                    fillOpacity: 0.25, // Increased for better contrast
-                    weight: 3, // Increased from 2
+                    color: 'transparent',
+                    fillColor: 'transparent',
+                    fillOpacity: 0,
+                    weight: 0,
                     pane: 'weatherPane'
                 }).addTo(weatherGroup).bindPopup(`<b>Weather Bounds</b><br>Active Storm: ${weather.active}<br>Wave Height: ${weather.wave_height_m}m`);
+                
                 boundsList.push(L.rectangle(rectBounds).getBounds());
             });
         }
