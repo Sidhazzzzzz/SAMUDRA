@@ -278,9 +278,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Draw Optimized Route
         if (data.optimized_route && data.optimized_route.length > 0) {
-            const latlngs = data.optimized_route.map(wp => [wp.lat, wp.lon]);
+            const rawLatlngs = data.optimized_route.map(wp => [wp.lat, wp.lon]);
             
-            const routeLine = L.polyline(latlngs, {
+            // Lightweight Catmull-Rom spline for rendering only
+            function catmullRomSpline(points, pointsPerSegment) {
+                if (points.length < 2) return points;
+                
+                function getPoint(p0, p1, p2, p3, t) {
+                    const t2 = t * t;
+                    const t3 = t2 * t;
+                    const lat = 0.5 * (
+                        (2 * p1[0]) +
+                        (-p0[0] + p2[0]) * t +
+                        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+                        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+                    );
+                    const lon = 0.5 * (
+                        (2 * p1[1]) +
+                        (-p0[1] + p2[1]) * t +
+                        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+                        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+                    );
+                    return [lat, lon];
+                }
+
+                const smoothed = [];
+                for (let i = 0; i < points.length - 1; i++) {
+                    const p0 = points[i === 0 ? 0 : i - 1];
+                    const p1 = points[i];
+                    const p2 = points[i + 1];
+                    const p3 = points[i + 2 >= points.length ? points.length - 1 : i + 2];
+                    
+                    for (let j = 0; j < pointsPerSegment; j++) {
+                        const t = j / pointsPerSegment;
+                        smoothed.push(getPoint(p0, p1, p2, p3, t));
+                    }
+                }
+                smoothed.push(points[points.length - 1]);
+                return smoothed;
+            }
+            
+            const smoothedLatLngs = catmullRomSpline(rawLatlngs, 10);
+            
+            const routeLine = L.polyline(smoothedLatLngs, {
                 color: '#FFD166',
                 weight: 5, // Increased from 4
                 dashArray: '5, 10',
