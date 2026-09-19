@@ -181,7 +181,37 @@ def get_ecosystem_trend(region: str, years: int = 3) -> dict:
     return _marine_ecosystem(region, years)
 
 
-TOOLS = [get_active_pfz, get_storm_status, get_route_between, plan_fishing_route, get_ecosystem_trend]
+
+@tool
+def plan_commercial_route(origin_port: str, destination_port: str, vessel_draft_m: float = 3.0) -> dict:
+    """High-level commercial/cargo/transit route planner.
+    
+    Args:
+        origin_port: Name of the departure port (e.g. "Rameswaram").
+        destination_port: Name of the destination port (e.g. "Pamban").
+        vessel_draft_m: Vessel draft in meters.
+    """
+    origin_coords = get_location_coordinates(origin_port)
+    dest_coords = get_location_coordinates(destination_port)
+
+    if not origin_coords or not dest_coords:
+        return {
+            "error": "Could not resolve origin or destination coordinates.",
+            "origin_port": origin_port,
+            "destination_port": destination_port,
+        }
+
+    return _geo_get_route(
+        origin_lat=origin_coords[0],
+        origin_lon=origin_coords[1],
+        dest_lat=dest_coords[0],
+        dest_lon=dest_coords[1],
+        vessel_draft_m=vessel_draft_m,
+        vessel_speed_knots=12.0,
+        route_profile="commercial"
+    )
+
+TOOLS = [get_active_pfz, get_storm_status, get_route_between, plan_fishing_route, plan_commercial_route, get_ecosystem_trend]
 _TOOL_MAP: dict[str, Any] = {t.name: t for t in TOOLS}
 
 # ── LLM construction helpers ──────────────────────────────────────────────
@@ -202,8 +232,8 @@ _TOOL_SELECTION_SYSTEM = (
     "   from a tool call.\n"
     "3. If you cannot determine which tool to call, call get_storm_status with "
     "   region_bbox [9.0, 79.0, 9.5, 79.8] as a safe default.\n"
-    "4. For fishing-related queries that mention safety, call plan_fishing_route "
-    "   with check_storm_risk=true.\n"
+    "4. For fishing-related queries that mention safety, call plan_fishing_route with check_storm_risk=true.\n"
+    "4b. For commercial, cargo, or transit routing queries (e.g. commercial route avoiding fishing zones), call plan_commercial_route.\n"
     "5. For queries only about storms or weather safety, call get_storm_status.\n"
     "6. For queries about fishing zones or PFZ, call get_active_pfz.\n"
     "7. For queries about routing, call get_route_between with appropriate "
@@ -344,6 +374,11 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
                 state.weather_risks = [result["storm"]]
             state.optimized_route = result.get("route", {}).get("waypoints", [])
 
+        elif tool_name == "plan_commercial_route":
+            state.optimized_route = result.get("waypoints", [])
+            if not hasattr(state, '_extra_data'):
+                state._extra_data = {}
+            state._extra_data["commercial_advisory"] = result
         elif tool_name == "get_ecosystem_trend":
             # Store ecosystem trend data in the state for narration
             # (no separate state field yet — pass via weather_risks or a generic bucket)

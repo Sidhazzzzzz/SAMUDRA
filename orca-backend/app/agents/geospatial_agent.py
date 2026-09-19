@@ -104,15 +104,16 @@ def get_route_between(
     dest_lat: float,
     dest_lon: float,
     vessel_draft_m: float,
+    vessel_speed_knots: float | None = None,
+    route_profile: str = "fishing",
 ) -> dict:
     """Compute an optimised maritime route between two coordinates.
 
     Uses A* pathfinding over real GEBCO 2020 bathymetric depth data,
     avoiding land and shallow water cells.  After computing the route,
-    runs a deterministic IMBL geofencing check.
+    it also checks for IMBL boundary violations.
     """
-    logger.info("Computing A* route: (%.4f, %.4f) -> (%.4f, %.4f), draft=%.1fm",
-                origin_lat, origin_lon, dest_lat, dest_lon, vessel_draft_m)
+    logger.info(f"Computing route: origin({origin_lat}, {origin_lon}) to dest({dest_lat}, {dest_lon}) [Profile: {route_profile}]")
 
     result = compute_route(
         origin_lat=origin_lat,
@@ -120,6 +121,8 @@ def get_route_between(
         dest_lat=dest_lat,
         dest_lon=dest_lon,
         vessel_draft_m=vessel_draft_m,
+        vessel_speed_knots=vessel_speed_knots,
+        route_profile=route_profile,
     )
 
     # Run IMBL geofencing check on computed waypoints

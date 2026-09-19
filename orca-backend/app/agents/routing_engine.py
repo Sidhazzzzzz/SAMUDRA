@@ -292,6 +292,7 @@ def astar_search(
     grid: NavGrid,
     start: tuple[int, int],
     goal: tuple[int, int],
+    extra_cost_func=None
 ) -> tuple[list[tuple[int, int]], float, int] | None:
     """Run A* search over the navigation grid.
 
@@ -299,6 +300,7 @@ def astar_search(
         grid:  The NavGrid to search over.
         start: (row, col) of the start cell.
         goal:  (row, col) of the goal cell.
+        extra_cost_func: Optional callable (row, col) -> float
 
     Returns:
         (path, total_cost_km, nodes_explored) or None if no path exists.
@@ -340,6 +342,9 @@ def astar_search(
             cost = grid.edge_cost(*current, *neighbor)
             if cost == float("inf"):
                 continue
+                
+            if extra_cost_func:
+                cost += extra_cost_func(*neighbor)
 
             tentative_g = g_score[current] + cost
 
@@ -375,7 +380,8 @@ def compute_route(
     dest_lat: float,
     dest_lon: float,
     vessel_draft_m: float = 2.0,
-    vessel_speed_knots: float = DEFAULT_VESSEL_SPEED_KNOTS,
+    vessel_speed_knots: float | None = None,
+    route_profile: str = "fishing"
 ) -> dict[str, Any]:
     """Compute a real A* maritime route between two coordinates.
 
@@ -383,6 +389,9 @@ def compute_route(
     and returns a full route result with waypoints, distance, and time.
     """
     grid = _get_nav_grid()
+
+    if vessel_speed_knots is None:
+        vessel_speed_knots = 12.0 if route_profile == "commercial" else DEFAULT_VESSEL_SPEED_KNOTS
 
     # Snap to nearest valid grid cells
     start_cell = grid.snap_to_nearest_valid(origin_lat, origin_lon)
@@ -406,7 +415,43 @@ def compute_route(
                 origin_lat, origin_lon, start_cell,
                 dest_lat, dest_lon, goal_cell)
 
-    result = astar_search(grid, start_cell, goal_cell)
+    extra_cost_func = None
+    if route_profile == "commercial":
+        try:
+            from app.agents.pfz_agent import get_active_pfz
+            bbox = [min(origin_lat, dest_lat)-1, min(origin_lon, dest_lon)-1,
+                    max(origin_lat, dest_lat)+1, max(origin_lon, dest_lon)+1]
+            pfz_data = get_active_pfz(bbox, origin_lat, origin_lon)
+            
+            from shapely.geometry import MultiLineString, LineString, Point
+            lines = []
+            for f in pfz_data.get("pfz_lines", []):
+                geom = f.get("geometry", {})
+                coords = geom.get("coordinates", [])
+                if geom.get("type") == "MultiLineString":
+                    for line in coords:
+                        lines.append(LineString(line))
+                elif geom.get("type") == "LineString":
+                    lines.append(LineString(coords))
+            
+            pfz_geom = None
+            if lines:
+                pfz_geom = MultiLineString(lines)
+            
+            if pfz_geom:
+                logger.info("Applying commercial PFZ avoidance penalty.")
+                def pfz_penalty(r, c):
+                    lat, lon = grid.get_coords(r, c)
+                    # ~2km buffer is ~0.018 degrees
+                    dist_deg = pfz_geom.distance(Point(lon, lat))
+                    if dist_deg < 0.018:
+                        return 10.0 # Heavy 10km additive penalty per step near PFZ
+                    return 0.0
+                extra_cost_func = pfz_penalty
+        except Exception as e:
+            logger.error(f"Error setting up commercial PFZ penalty: {e}")
+
+    result = astar_search(grid, start_cell, goal_cell, extra_cost_func=extra_cost_func)
 
     if result is None:
         return {
