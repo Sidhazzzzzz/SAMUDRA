@@ -230,42 +230,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const [minLat, minLon, maxLat, maxLon] = weather.region_bbox;
                 const rectBounds = [[minLat, minLon], [maxLat, maxLon]];
                 
-                let gradientObj;
+                let blobColor = '#06D6A0';
                 if (weather.active || overallStatus === 'NO-GO') {
-                    gradientObj = {0.0: 'rgba(239,71,111,0)', 0.1: '#EF476F', 1.0: '#EF476F'};
+                    blobColor = '#EF476F';
                 } else if (overallStatus === 'CAUTION') {
-                    gradientObj = {0.0: 'rgba(255,209,102,0)', 0.1: '#FFD166', 1.0: '#FFD166'};
-                } else {
-                    gradientObj = {0.0: 'rgba(6,214,160,0)', 0.1: '#06D6A0', 1.0: '#06D6A0'};
+                    blobColor = '#FFD166';
                 }
 
-                // Generate a grid of points to fill the bbox smoothly across zoom levels
-                const heatPoints = [];
-                const steps = 4;
-                for(let i=0; i<=steps; i++) {
-                    const lat = minLat + (maxLat - minLat) * (i / steps);
-                    for(let j=0; j<=steps; j++) {
-                        const lon = minLon + (maxLon - minLon) * (j / steps);
-                        // Force a massive intensity (1000) to override Leaflet.heat's aggressive zoom-based intensity suppression
-                        heatPoints.push([lat, lon, 1000.0]);
-                    }
-                }
-
-                // Draw the soft gradient heat layer
-                L.heatLayer(heatPoints, {
-                    radius: 50,
-                    blur: 50,
-                    maxZoom: 14,
-                    gradient: gradientObj,
-                    pane: 'weatherPane'
-                }).addTo(weatherGroup);
-
-                // Add an invisible rectangle over the same bounds to preserve the click-to-popup behavior
+                // Use a standard rectangle but apply a heavy CSS blur to create a soft, geographic heatmap blob
                 L.rectangle(rectBounds, {
-                    color: 'transparent',
-                    fillColor: 'transparent',
-                    fillOpacity: 0,
+                    color: 'transparent', // No border
+                    fillColor: blobColor,
+                    fillOpacity: 0.6,
                     weight: 0,
+                    className: 'weather-blob',
                     pane: 'weatherPane'
                 }).addTo(weatherGroup).bindPopup(`<b>Weather Bounds</b><br>Active Storm: ${weather.active}<br>Wave Height: ${weather.wave_height_m}m`);
                 
