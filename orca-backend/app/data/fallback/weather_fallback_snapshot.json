@@ -1,0 +1,24 @@
+{
+  "source": "Open-Meteo Marine API (2026-09-19T01:49:45.010982+00:00)",
+  "fetched_at": "2026-09-19T01:49:45.010982+00:00",
+  "region_bbox": [
+    9.0,
+    79.0,
+    9.5,
+    79.8
+  ],
+  "evaluated_point": {
+    "latitude": 9.25,
+    "longitude": 79.4
+  },
+  "active": false,
+  "data_unavailable": false,
+  "wave_height_m": 0.72,
+  "wind_wave_height_m": 0.24,
+  "swell_wave_height_m": 0.56,
+  "wind_speed_knots": 9.4,
+  "wind_gusts_knots": 12.8,
+  "advisories": [],
+  "forecast_window_hrs": 24,
+  "summary": "No active storm warnings near (9.25, 79.4): wave height 0.72m, wind speed 9.4 knots (gusts 12.8 knots). Conditions within normal limits."
+}

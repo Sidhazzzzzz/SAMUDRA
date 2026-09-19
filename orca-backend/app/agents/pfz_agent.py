@@ -19,6 +19,7 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
     url_pfz = f"https://incois.gov.in/geoserver/PFZ_Automation/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Automation:pfzlines&outputFormat=application/json&BBOX={bbox_str}"
     
     pfz_features = []
+    fetch_failed = False
     try:
         req = urllib.request.Request(url_pfz, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=15) as response:
@@ -26,6 +27,20 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
             pfz_features = data.get('features', [])
     except Exception as e:
         print(f"Error fetching PFZ lines: {e}")
+        fetch_failed = True
+
+    if fetch_failed:
+        import os
+        from datetime import datetime
+        try:
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            fallback_path = os.path.join(base_dir, 'data', 'fallback', 'pfz_fallback_snapshot.json')
+            with open(fallback_path, 'r') as f:
+                fb = json.load(f)
+            fb['source'] = f"LOCAL_FALLBACK_SNAPSHOT (captured 2026-09-19, live fetch failed)"
+            return fb
+        except Exception as fallback_e:
+            return {"source": "LOCAL_FALLBACK_SNAPSHOT", "error": str(fallback_e)}
 
     if not pfz_features:
         return {

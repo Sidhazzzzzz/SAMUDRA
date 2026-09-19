@@ -139,18 +139,29 @@ def get_storm_status(region_bbox: list[float] | None = None) -> dict:
 
     except Exception as exc:
         logger.error("Open-Meteo Marine API fetch failed: %s", exc)
-        return {
-            "source": source_label,
-            "fetched_at": now_iso,
-            "region_bbox": region_bbox,
-            "evaluated_point": {"latitude": lat, "longitude": lon},
-            "active": None,
-            "data_unavailable": True,
-            "reason": f"Failed to retrieve marine weather from Open-Meteo: {type(exc).__name__} - {str(exc)}",
-            "wave_height_m": None,
-            "wind_speed_knots": None,
-            "wind_gusts_knots": None,
-            "advisories": ["Live marine weather data is currently unavailable."],
-            "forecast_window_hrs": 24,
-            "summary": "Live marine weather data is currently unavailable due to an API or network issue.",
-        }
+        
+        try:
+            import json
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            fallback_path = os.path.join(base_dir, 'data', 'fallback', 'weather_fallback_snapshot.json')
+            with open(fallback_path, 'r') as f:
+                fb = json.load(f)
+            fb['source'] = "LOCAL_FALLBACK_SNAPSHOT (captured 2026-09-19, live fetch failed)"
+            return fb
+        except Exception as fallback_e:
+            logger.error(f"Fallback snapshot failed to load: {fallback_e}")
+            return {
+                "source": source_label,
+                "fetched_at": now_iso,
+                "region_bbox": region_bbox,
+                "evaluated_point": {"latitude": lat, "longitude": lon},
+                "active": None,
+                "data_unavailable": True,
+                "reason": f"Failed to retrieve marine weather from Open-Meteo: {type(exc).__name__} - {str(exc)}",
+                "wave_height_m": None,
+                "wind_speed_knots": None,
+                "wind_gusts_knots": None,
+                "advisories": ["Live marine weather data is currently unavailable."],
+                "forecast_window_hrs": 24,
+                "summary": "Live marine weather data is currently unavailable due to an API or network issue.",
+            }

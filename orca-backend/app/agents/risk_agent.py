@@ -49,6 +49,12 @@ def evaluate_verdict(
             "evaluated_at": now_iso,
         }
 
+    is_fallback = False
+    weather_src = weather_result.get("source", "") if weather_result else ""
+    pfz_src = pfz_result.get("source", "") if pfz_result else ""
+    if "LOCAL_FALLBACK_SNAPSHOT" in weather_src or "LOCAL_FALLBACK_SNAPSHOT" in pfz_src:
+        is_fallback = True
+
     # Priority 2: Active storm / severe condition triggered
     if weather_result.get("active") is True:
         advisories = weather_result.get("advisories", [])
@@ -58,10 +64,15 @@ def evaluate_verdict(
             reason = weather_result.get(
                 "summary", "Active hazardous marine weather conditions detected."
             )
+
+        if is_fallback:
+            reason += " (NOTE: Live data unreachable; using last known fallback snapshot. Treat with extra caution.)"
+
         return {
             "verdict": "NO-GO",
             "reason": reason,
             "evaluated_at": now_iso,
+            "fallback_used": is_fallback,
         }
 
     # Priority 2.5: Lightning risk
@@ -77,13 +88,17 @@ def evaluate_verdict(
     LIGHTNING_THRESHOLD = 0.7  # ≥70% → CAUTION
 
     if lightning_risk >= LIGHTNING_THRESHOLD:
+        reason = (
+            f"Elevated lightning risk ({lightning_risk:.0%}) in the operational area. "
+            "Avoid open-deck operations and seek shelter if thunderstorm develops."
+        )
+        if is_fallback:
+            reason += " (NOTE: Live data unreachable; using last known fallback snapshot.)"
         return {
             "verdict": "CAUTION",
-            "reason": (
-                f"Elevated lightning risk ({lightning_risk:.0%}) in the operational area. "
-                "Avoid open-deck operations and seek shelter if thunderstorm develops."
-            ),
+            "reason": reason,
             "evaluated_at": now_iso,
+            "fallback_used": is_fallback,
         }
 
     # Priority 3: Within 20% of threshold limits (wave >= 2.0m or gusts >= 20.0 knots)
@@ -101,17 +116,25 @@ def evaluate_verdict(
             details.append(f"wind gusts {wind_gusts:.1f} knots (limit {WIND_GUSTS_MAX_KNOTS} knots)")
 
         reason = f"Conditions approaching operational limits: {', '.join(details)}."
+        if is_fallback:
+            reason += " (NOTE: Live data unreachable; using last known fallback snapshot.)"
         return {
             "verdict": "CAUTION",
             "reason": reason,
             "evaluated_at": now_iso,
+            "fallback_used": is_fallback,
         }
 
     # Priority 4: Safe
+    reason = "Conditions within normal operational limits."
+    if is_fallback:
+        reason += " (NOTE: Live data unreachable; using last known fallback snapshot. Validate locally.)"
+
     return {
         "verdict": "SAFE",
-        "reason": "Conditions within normal operational limits.",
+        "reason": reason,
         "evaluated_at": now_iso,
+        "fallback_used": is_fallback,
     }
 
 
