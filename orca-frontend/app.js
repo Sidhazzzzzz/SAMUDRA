@@ -192,10 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appendMessage('COMMANDER', query, 'user-msg');
         
-        // Inject commercial mode hint for backend LLM
-        if (currentMode === "commercial") {
-            query = "plan a commercial route: " + query;
-        }
+
         chatInput.value = '';
         
         setLoading(true);
@@ -204,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('http://localhost:8000/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_query: query })
+                body: JSON.stringify({ user_query: query, mode: currentMode })
             });
 
             if (!response.ok) {
@@ -224,6 +221,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Handle Data & Update UI
     function handleSystemResponse(data) {
+        // Update System Trace
+        if (data.execution_trace) {
+            updateTracePanel(data.execution_trace);
+        }
+
         // A. Update Verdict Panel
         const overallStatus = data.verdict ? data.verdict.verdict : (data.status || 'UNKNOWN');
         if (data.verdict) {
@@ -431,3 +433,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+
+    // Trace Toggle Logic
+    const traceToggle = document.getElementById('trace-toggle');
+    const traceContent = document.getElementById('trace-content');
+    const traceIcon = document.getElementById('trace-icon');
+    const traceList = document.getElementById('trace-list');
+
+    traceToggle.addEventListener('click', () => {
+        traceContent.classList.toggle('hidden');
+        traceIcon.textContent = traceContent.classList.contains('hidden') ? '▼' : '▲';
+    });
+
+    function updateTracePanel(traceData) {
+        traceList.innerHTML = '';
+        if (!traceData || traceData.length === 0) {
+            traceList.innerHTML = '<li class="trace-item"><span class="trace-item-summary">No trace data available.</span></li>';
+            return;
+        }
+
+        traceData.forEach(step => {
+            const li = document.createElement('li');
+            li.className = `trace-item source-${step.source_type}`;
+            
+            const header = document.createElement('div');
+            header.className = 'trace-item-header';
+            
+            const stageSpan = document.createElement('span');
+            stageSpan.textContent = step.stage.toUpperCase();
+            
+            const timeSpan = document.createElement('span');
+            timeSpan.textContent = `${step.duration_ms}ms`;
+            
+            header.appendChild(stageSpan);
+            header.appendChild(timeSpan);
+            
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'trace-item-summary';
+            summaryDiv.textContent = step.summary;
+            
+            li.appendChild(header);
+            li.appendChild(summaryDiv);
+            traceList.appendChild(li);
+        });
+    }

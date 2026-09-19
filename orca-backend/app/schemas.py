@@ -17,12 +17,14 @@ class VesselTelemetry(BaseModel):
 
 class RouteRequestState(BaseModel):
     user_query: str
+    mode: str = "fishing"
     chat_history: list[dict] = []
     vessel: VesselTelemetry | None = None
     bounding_box: tuple[float, float, float, float] | None = None
     pfz_targets: list[dict] = []
     weather_risks: list[dict] = []
     optimized_route: list[dict] = []
+    execution_trace: list[dict] = []
     verdict: dict | None = None
     status: str | None = None
     legal_status: bool | None = None

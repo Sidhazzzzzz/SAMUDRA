@@ -21,6 +21,19 @@ from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
+import time
+
+def append_trace(state, stage: str, t_start: float, summary: str, source_type: str = "live"):
+    duration = (time.time() - t_start) * 1000
+    if not hasattr(state, "execution_trace") or state.execution_trace is None:
+        state.execution_trace = []
+    state.execution_trace.append({
+        "stage": stage,
+        "duration_ms": round(duration, 2),
+        "summary": summary,
+        "source_type": source_type
+    })
+
 from app.schemas import RouteRequestState
 
 # ── Agent mock implementations (unchanged) ─────────────────────────────────
@@ -304,7 +317,9 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
     then execute them and populate the state."""
 
     # Build message list
-    messages: list = [SystemMessage(content=_TOOL_SELECTION_SYSTEM)]
+    mode_hint = getattr(state, "mode", "fishing")
+    system_prompt = _TOOL_SELECTION_SYSTEM + f"\n\nACTIVE MODE HINT: {mode_hint.upper()}\n"
+    messages: list = [SystemMessage(content=system_prompt)]
     for msg in state.chat_history:
         role = msg.get("role", "user")
         if role == "user":
@@ -312,7 +327,9 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
     messages.append(HumanMessage(content=state.user_query))
 
     # Call LLM with tool binding
+    t0_intent = time.time()
     ai_msg, model_label = _invoke_with_fallback(messages, bind_tools=True)
+    append_trace(state, "intent_parse", t0_intent, f"Parsed intent via {model_label}.", "llm")
 
     tool_calls = ai_msg.tool_calls if hasattr(ai_msg, "tool_calls") else []
 
@@ -334,7 +351,27 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
             logger.error("Unknown tool requested: %s", tool_name)
             continue
 
+        t0_tool = time.time()
         result = _TOOL_MAP[tool_name].invoke(tool_args)
+        
+        # Determine source type and summary dynamically
+        source_type = "live"
+        summary = f"Executed {tool_name} successfully."
+        
+        # Simple heuristic for fallback detection in result
+        if isinstance(result, dict) and "source" in result:
+            if "FALLBACK" in result["source"].upper() or "MOCK" in result["source"].upper():
+                source_type = "fallback"
+            
+        if tool_name == "get_active_pfz":
+            summary = f"Fetched {len(result.get('pfz_lines', []))} PFZ lines (sector: {result.get('sector')})."
+        elif tool_name == "get_storm_status":
+            summary = f"Fetched weather status: {result.get('summary', 'OK')}"
+        elif tool_name in ["get_route_between", "plan_fishing_route", "plan_commercial_route"]:
+            waypoints = result.get("waypoints", [])
+            summary = f"Calculated route with {len(waypoints)} waypoints."
+            
+        append_trace(state, f"tool_execution: {tool_name}", t0_tool, summary, source_type)
 
         # ── Populate state based on which tool was called ──────────────
         if tool_name == "get_active_pfz":
@@ -430,7 +467,9 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
     ]
 
     try:
+        t0_narrate = time.time()
         ai_msg, model_label = _invoke_with_fallback(messages, bind_tools=False)
+        append_trace(state, "narration_generation", t0_narrate, f"Generated final advisory via {model_label}.", "llm")
         
         content = ai_msg.content
         if isinstance(content, list):
@@ -574,11 +613,13 @@ def handle_query(state: RouteRequestState) -> RouteRequestState:
     pfz_data = {"pfz_zones": state.pfz_targets} if state.pfz_targets else None
     route_data = {"waypoints": state.optimized_route} if state.optimized_route else None
 
+    t0_verdict = time.time()
     verdict_result = evaluate_verdict(
         weather_result=weather_data,
         pfz_result=pfz_data,
         route_result=route_data,
     )
+    append_trace(state, "verdict_evaluation", t0_verdict, f"Evaluated verdict: {verdict_result['verdict']}", "live" if not verdict_result.get('fallback_used') else "fallback")
     state.verdict = verdict_result
     logger.info("DETERMINISTIC VERDICT: %s | Reason: %s",
                 verdict_result["verdict"], verdict_result["reason"])

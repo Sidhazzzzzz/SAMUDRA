@@ -28,6 +28,7 @@ app.add_middleware(
 # ── Request body for /query ────────────────────────────────────────────────
 class QueryRequest(BaseModel):
     user_query: str
+    mode: str = "fishing"
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -40,6 +41,6 @@ async def health() -> dict:
 
 @app.post("/query")
 async def query(body: QueryRequest) -> RouteRequestState:
-    state = RouteRequestState(user_query=body.user_query)
+    state = RouteRequestState(user_query=body.user_query, mode=body.mode)
     result = handle_query(state)
     return result
