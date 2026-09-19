@@ -164,13 +164,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize visibility state on page load
     syncLayerVisibility();
 
+
+    // Persona Switcher
+    let currentMode = "fishing";
+    document.querySelectorAll('.persona-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.persona-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentMode = e.target.dataset.mode;
+            
+            const title = document.getElementById('persona-title');
+            if (currentMode === "commercial") {
+                title.textContent = "COMMERCIAL NAVIGATOR";
+                chatInput.placeholder = "e.g., plan a commercial route from Rameswaram to Mandapam...";
+            } else {
+                title.textContent = "FISHERMAN PORTAL";
+                chatInput.placeholder = "Enter coordinates, mission, or ask for a route...";
+            }
+        });
+    });
+
     // 3. Chat Form Submit
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const query = chatInput.value.trim();
+        let query = chatInput.value.trim();
         if (!query) return;
 
         appendMessage('COMMANDER', query, 'user-msg');
+        
+        // Inject commercial mode hint for backend LLM
+        if (currentMode === "commercial") {
+            query = "plan a commercial route: " + query;
+        }
         chatInput.value = '';
         
         setLoading(true);

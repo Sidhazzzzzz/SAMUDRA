@@ -434,3 +434,34 @@ body {
  } 
   
  
+/* Persona Switcher */
+.persona-switcher {
+    display: flex;
+    gap: 10px;
+    padding: 10px 20px;
+    background: var(--bg-navy);
+    border-bottom: 1px solid var(--accent-marine);
+}
+.persona-btn {
+    flex: 1;
+    padding: 6px;
+    background: transparent;
+    border: 1px solid var(--text-muted);
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-family: var(--font-main);
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+}
+.persona-btn:hover {
+    border-color: var(--text-main);
+    color: var(--text-main);
+}
+.persona-btn.active {
+    background: var(--accent-marine);
+    color: var(--bg-dark);
+    border-color: var(--accent-marine);
+    font-weight: 700;
+}
