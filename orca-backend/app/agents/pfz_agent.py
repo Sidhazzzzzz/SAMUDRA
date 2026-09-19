@@ -10,6 +10,16 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+def calculate_bearing(lat1, lon1, lat2, lon2):
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    dlon = lon2 - lon1
+    x = math.sin(dlon) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - (math.sin(lat1) * math.cos(lat2) * math.cos(dlon))
+    initial_bearing = math.atan2(x, y)
+    initial_bearing = math.degrees(initial_bearing)
+    compass_bearing = (initial_bearing + 360) % 360
+    return round(compass_bearing)
+
 def get_nearest_landing_centre(origin_lat: float, origin_lon: float) -> tuple[dict | None, str | None]:
     url_lc = "https://incois.gov.in/geoserver/PFZ_LandingCentres/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_LandingCentres:LandingCenters_29Apr2024&outputFormat=application/json"
     nearest_lc = None
@@ -33,11 +43,15 @@ def get_nearest_landing_centre(origin_lat: float, origin_lon: float) -> tuple[di
 
     lc_info = None
     if nearest_lc:
+        lc_lat = float(nearest_lc['LATITUDE'])
+        lc_lon = float(nearest_lc['LONGITUDE'])
+        actual_bearing = calculate_bearing(origin_lat, origin_lon, lc_lat, lc_lon)
+        
         lc_info = {
             "LC_NAME": nearest_lc.get("LC_NAME"),
             "DIRECTION": nearest_lc.get("DIRECTION"),
-            "BEARING": nearest_lc.get("BEARING"),
-            "DISTANCE_F": nearest_lc.get("DISTANCE_F"),
+            "BEARING": actual_bearing,
+            "DISTANCE_F": round(min_dist, 1),
             "DISTANCE_T": nearest_lc.get("DISTANCE_T"),
             "DEPTH_FROM": nearest_lc.get("DEPTH_FROM"),
             "DEPTH_TO": nearest_lc.get("DEPTH_TO")
