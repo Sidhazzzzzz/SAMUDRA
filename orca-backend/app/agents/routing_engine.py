@@ -388,7 +388,20 @@ def compute_route(
     Snaps origin/destination to nearest valid grid cells, runs A*,
     and returns a full route result with waypoints, distance, and time.
     """
-    grid = _get_nav_grid()
+    try:
+        grid = _get_nav_grid()
+    except Exception as e:
+        logger.error(f"Failed to initialize nav grid: {e}")
+        return {
+            "source": "A* over GEBCO 2020 bathymetry (OpenTopoData)",
+            "error": f"Failed to load bathymetry data: {str(e)}",
+            "origin": {"lat": origin_lat, "lon": origin_lon},
+            "destination": {"lat": dest_lat, "lon": dest_lon},
+            "waypoints": [],
+            "distance_km": 0.0,
+            "distance_nm": 0.0,
+            "estimated_time_hrs": 0.0,
+        }
 
     if vessel_speed_knots is None:
         vessel_speed_knots = 12.0 if route_profile == "commercial" else DEFAULT_VESSEL_SPEED_KNOTS

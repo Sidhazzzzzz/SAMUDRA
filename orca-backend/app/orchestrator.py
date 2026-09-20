@@ -274,14 +274,14 @@ _NARRATION_SYSTEM = (
 
 
 def _build_primary_llm():
-    """Groq (llama-3.3-70b-versatile) — primary model."""
+    """Groq (qwen3.8-27b) — primary model."""
     from langchain_groq import ChatGroq
 
     return ChatGroq(model="qwen/qwen3.8-27b", temperature=0)
 
 
 def _build_fallback_llm():
-    """Google Gemini 2.0 Flash — fallback model."""
+    """Google Gemini 3.6 Flash — fallback model."""
     from langchain_google_genai import ChatGoogleGenerativeAI
 
     return ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0)
@@ -357,15 +357,14 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
             
             # Direct read of source field
             source_type = "live"
-            raw_source = ""
-            if isinstance(result, dict) and "source" in result:
-                raw_source = str(result["source"])
-            elif tool_name in ["plan_fishing_route", "plan_commercial_route"]:
-                raw_source = result.get("source", "")
-                
-            if "MOCK_DATA" in raw_source.upper():
+            
+            # Helper to search nested dicts for source strings
+            import json
+            result_str = json.dumps(result).upper()
+            
+            if "MOCK_DATA" in result_str:
                 source_type = "mock"
-            elif "LOCAL_FALLBACK_SNAPSHOT" in raw_source.upper():
+            elif "LOCAL_FALLBACK_SNAPSHOT" in result_str:
                 source_type = "fallback"
             
             summary = f"Executed {tool_name} successfully."
@@ -634,7 +633,6 @@ def handle_query(state: RouteRequestState) -> RouteRequestState:
     state.verdict = verdict_result
     logger.info("DETERMINISTIC VERDICT: %s | Reason: %s",
                 verdict_result["verdict"], verdict_result["reason"])
-    print(f"[VERDICT EVALUATED] {json.dumps(verdict_result)}")
 
     state = narrate_result(state)
     return state
