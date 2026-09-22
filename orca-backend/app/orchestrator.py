@@ -68,27 +68,31 @@ _PLACEHOLDER_DRAFT_M = 2.5
 
 
 @tool
-def get_active_pfz(region_bbox: list[float]) -> dict:
+def get_active_pfz(region_bbox: list[float], language_out: str = "en", target_time: str = "now") -> dict:
     """Return active Potential Fishing Zone (PFZ) advisories for a bounding box.
 
     Args:
         region_bbox: Four floats [south_lat, west_lon, north_lat, east_lon]
                      defining the search area.  Use [9.0, 79.0, 9.5, 79.8]
                      for the Rameswaram / Gulf of Mannar region.
+        language_out: Language for the advisory output (e.g. "en", "ta", "hi").
+        target_time: Target date/time reference (e.g. "now", "today", "tomorrow morning", "tomorrow evening").
     """
     return _pfz_get_active(region_bbox)
 
 
 @tool
-def get_storm_status(region_bbox: list[float]) -> dict:
+def get_storm_status(region_bbox: list[float], language_out: str = "en", target_time: str = "now") -> dict:
     """Check for active storms, cyclones, or severe-weather advisories in a region.
 
     Args:
         region_bbox: Four floats [south_lat, west_lon, north_lat, east_lon]
                      defining the area to check.  Use [9.0, 79.0, 9.5, 79.8]
                      for the Rameswaram / Gulf of Mannar region.
+        language_out: Language for the advisory output (e.g. "en", "ta", "hi").
+        target_time: Target date/time reference (e.g. "now", "today", "tomorrow morning", "tomorrow evening").
     """
-    return _weather_get_storm(region_bbox)
+    return _weather_get_storm(region_bbox, target_time)
 
 
 @tool
@@ -98,6 +102,8 @@ def get_route_between(
     dest_lat: float,
     dest_lon: float,
     vessel_draft_m: float,
+    language_out: str = "en",
+    target_time: str = "now",
 ) -> dict:
     """Compute an optimised maritime route between two coordinates.
 
@@ -107,6 +113,8 @@ def get_route_between(
         dest_lat:       Latitude of the destination.
         dest_lon:       Longitude of the destination.
         vessel_draft_m: Vessel draft in metres (for depth clearance).
+        language_out:   Language for the advisory output (e.g. "en", "ta", "hi").
+        target_time:    Target date/time reference (e.g. "now", "today", "tomorrow morning", "tomorrow evening").
     """
     return _geo_get_route(origin_lat, origin_lon, dest_lat, dest_lon, vessel_draft_m)
 
@@ -115,7 +123,8 @@ def get_route_between(
 def plan_fishing_route(
     origin_port: str,
     check_storm_risk: bool,
-    language_out: str,
+    language_out: str = "en",
+    target_time: str = "now",
 ) -> dict:
     """High-level fishing-trip planner.  Combines PFZ lookup, optional storm
     risk check, and route generation into a single advisory bundle.
@@ -124,12 +133,13 @@ def plan_fishing_route(
         origin_port:     Name of the departure port (e.g. "Rameswaram").
         check_storm_risk: Whether to include a storm-risk check.
         language_out:    Language for the advisory output (e.g. "en", "ta").
+        target_time:     Target date/time reference (e.g. "now", "today", "tomorrow morning").
     """
     bbox = _DEFAULT_BBOX
     pfz = _pfz_get_active(bbox)
     storm: dict | None = None
     if check_storm_risk:
-        storm = _weather_get_storm(bbox)
+        storm = _weather_get_storm(bbox, target_time)
 
     pfz_lines = pfz.get("pfz_lines", [])
     if pfz_lines:
@@ -183,26 +193,30 @@ def plan_fishing_route(
 # ── Tool registry (used for both LLM binding and local dispatch) ──────────
 
 @tool
-def get_ecosystem_trend(region: str, years: int = 3) -> dict:
+def get_ecosystem_trend(region: str, years: int = 3, language_out: str = "en", target_time: str = "now") -> dict:
     """Analyse multi-year ecosystem health trends (SST, chlorophyll-a, fish productivity)
     for a named coastal region.
 
     Args:
         region: Name of the coastal region (e.g. "Gulf of Mannar", "Rameswaram").
         years:  Number of years to analyse (default 3).
+        language_out: Language for the advisory output (e.g. "en", "ta", "hi").
+        target_time: Target date/time reference (e.g. "now", "today", "tomorrow morning").
     """
     return _marine_ecosystem(region, years)
 
 
 
 @tool
-def plan_commercial_route(origin_port: str, destination_port: str, vessel_draft_m: float = 3.0) -> dict:
+def plan_commercial_route(origin_port: str, destination_port: str, vessel_draft_m: float = 3.0, language_out: str = "en", target_time: str = "now") -> dict:
     """High-level commercial/cargo/transit route planner.
     
     Args:
         origin_port: Name of the departure port (e.g. "Rameswaram").
         destination_port: Name of the destination port (e.g. "Pamban").
         vessel_draft_m: Vessel draft in meters.
+        language_out: Language for the advisory output (e.g. "en", "ta", "hi").
+        target_time: Target date/time reference (e.g. "now", "today", "tomorrow morning").
     """
     origin_coords = get_location_coordinates(origin_port)
     dest_coords = get_location_coordinates(destination_port)
@@ -236,6 +250,7 @@ _TOOL_SELECTION_SYSTEM = (
     "  • get_storm_status – check storm / cyclone advisories\n"
     "  • get_route_between – compute a sea route between two points\n"
     "  • plan_fishing_route – end-to-end fishing trip planner\n"
+    "  • plan_commercial_route – commercial transit route planner\n"
     "  • get_ecosystem_trend – analyse multi-year ecosystem health trends "
     "(SST, chlorophyll-a, fish productivity)\n\n"
     "RULES:\n"
@@ -253,6 +268,9 @@ _TOOL_SELECTION_SYSTEM = (
     "   coordinates (use Rameswaram harbour 9.2885, 79.3129 as default origin).\n"
     "8. For queries about ecosystem health, fish productivity trends, SST changes, "
     "   chlorophyll decline, or 'why has fishing declined', call get_ecosystem_trend.\n"
+    "9. MULTILINGUAL SUPPORT: You MUST auto-detect the language of the user's query and pass it as the `language_out` parameter in every tool call (e.g. 'ta' for Tamil, 'hi' for Hindi, 'en' for English).\n"
+    "10. CONVERSATIONAL CONTEXT: For short follow-up queries (e.g. 'what about [Location]?', 'and tomorrow?'), you MUST inherit the intent and tool choice from the prior turns. If the previous question was about fishing safety, use the fishing safety tool for the new location/time.\n"
+    "11. TARGET TIME: Extract any time references (e.g. 'today', 'tomorrow morning', 'tomorrow evening') and pass it to the tool as `target_time`. Default to 'now' if unspecified.\n"
 )
 
 _NARRATION_SYSTEM = (
@@ -320,10 +338,16 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
     mode_hint = getattr(state, "mode", "fishing")
     system_prompt = _TOOL_SELECTION_SYSTEM + f"\n\nACTIVE MODE HINT: {mode_hint.upper()}\n"
     messages: list = [SystemMessage(content=system_prompt)]
+    from langchain_core.messages import AIMessage
     for msg in state.chat_history:
         role = msg.get("role", "user")
+        content = msg.get("content", "")
         if role == "user":
-            messages.append(HumanMessage(content=msg.get("content", "")))
+            messages.append(HumanMessage(content=content))
+        elif role in ("assistant", "ai"):
+            messages.append(AIMessage(content=content))
+        elif role == "system":
+            messages.append(SystemMessage(content=content))
     messages.append(HumanMessage(content=state.user_query))
 
     # Call LLM with tool binding
@@ -346,6 +370,9 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
         tool_name = tc["name"]
         tool_args = tc["args"]
         logger.info("Tool selected by %s: %s(%s)", model_label, tool_name, tool_args)
+
+        if "language_out" in tool_args:
+            state.detected_language = tool_args.pop("language_out", "en")
 
         if tool_name not in _TOOL_MAP:
             logger.error("Unknown tool requested: %s", tool_name)
@@ -471,7 +498,8 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
                 f"```json\n{json.dumps(verdict_info, indent=2)}\n```\n\n"
                 f"SUPPORTING MARITIME DATA:\n"
                 f"```json\n{json.dumps(data_snapshot, indent=2, default=str)}\n```\n\n"
-                "Write a concise advisory for the captain. State the exact verdict above and explain the rationale using the supporting data."
+                f"Write a concise advisory for the captain. State the exact verdict above and explain the rationale using the supporting data.\n"
+                f"IMPORTANT: You MUST write the ENTIRE advisory in language code '{state.detected_language}' (detected from the user's query). Do not write in English unless the language code is 'en'."
             )
         ),
     ]
@@ -518,12 +546,27 @@ def get_location_coordinates(query: str) -> tuple[float, float] | None:
     query_lower = query.lower()
     gazetteer = {
         "rameswaram": (9.2885, 79.3129),
+        "ராமேஸ்வரம்": (9.2885, 79.3129),
+        "रामेश्वरम": (9.2885, 79.3129),
         "dhanushkodi": (9.1600, 79.4300),
+        "தனுஷ்கோடி": (9.1600, 79.4300),
+        "धनुषकोडी": (9.1600, 79.4300),
         "mandapam": (9.2783, 79.1235),
+        "மண்டபம்": (9.2783, 79.1235),
+        "मंडपम": (9.2783, 79.1235),
         "gulf of mannar": (9.25, 79.4),
+        "மன்னார் வளைகுடா": (9.25, 79.4),
+        "मन्नार की खाड़ी": (9.25, 79.4),
         "palk bay": (9.66, 79.28),
+        "பாக் வளைகுடா": (9.66, 79.28),
+        "पाक खाड़ी": (9.66, 79.28),
         "tuticorin": (8.7642, 78.1348),
-        "pamban": (9.2721, 79.2152)
+        "thoothukudi": (8.7642, 78.1348),
+        "தூத்துக்குடி": (8.7642, 78.1348),
+        "तूतीकोरिन": (8.7642, 78.1348),
+        "pamban": (9.2721, 79.2152),
+        "பாம்பன்": (9.2721, 79.2152),
+        "पंबन": (9.2721, 79.2152)
     }
     for place, coords in gazetteer.items():
         if place in query_lower:

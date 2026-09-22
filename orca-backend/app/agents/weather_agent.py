@@ -23,7 +23,7 @@ WIND_SPEED_THRESHOLD_KNOTS = 20.0
 REQUEST_TIMEOUT_SECONDS = 8.0
 
 
-def get_storm_status(region_bbox: list[float] | None = None) -> dict:
+def get_storm_status(region_bbox: list[float] | None = None, target_time: str = "now") -> dict:
     """Fetch live marine wave and wind conditions from Open-Meteo Marine API.
 
     Evaluates whether conditions exceed safe operating thresholds for fishing
@@ -41,42 +41,103 @@ def get_storm_status(region_bbox: list[float] | None = None) -> dict:
         lon = 79.4
         region_bbox = [9.0, 79.0, 9.5, 79.8]
 
+    is_forecast = False
+    
     try:
         with httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-            # 1. Fetch marine wave conditions
-            marine_resp = client.get(
-                OPEN_METEO_MARINE_URL,
-                params={
-                    "latitude": lat,
-                    "longitude": lon,
-                    "current": [
-                        "wave_height",
-                        "wind_wave_height",
-                        "swell_wave_height",
-                    ],
-                },
-            )
-            marine_resp.raise_for_status()
-            marine_curr = marine_resp.json().get("current", {})
+            target = target_time.lower().strip()
+            if target == "now" or target == "today":
+                # Current conditions
+                marine_resp = client.get(
+                    OPEN_METEO_MARINE_URL,
+                    params={
+                        "latitude": lat,
+                        "longitude": lon,
+                        "current": ["wave_height", "wind_wave_height", "swell_wave_height"],
+                    },
+                )
+                marine_resp.raise_for_status()
+                marine_curr = marine_resp.json().get("current", {})
 
-            # 2. Fetch atmospheric wind conditions (in knots)
-            weather_resp = client.get(
-                OPEN_METEO_WEATHER_URL,
-                params={
-                    "latitude": lat,
-                    "longitude": lon,
-                    "current": ["wind_speed_10m", "wind_gusts_10m"],
-                    "wind_speed_unit": "kn",
-                },
-            )
-            weather_resp.raise_for_status()
-            weather_curr = weather_resp.json().get("current", {})
+                weather_resp = client.get(
+                    OPEN_METEO_WEATHER_URL,
+                    params={
+                        "latitude": lat,
+                        "longitude": lon,
+                        "current": ["wind_speed_10m", "wind_gusts_10m"],
+                        "wind_speed_unit": "kn",
+                    },
+                )
+                weather_resp.raise_for_status()
+                weather_curr = weather_resp.json().get("current", {})
 
-        wave_height = marine_curr.get("wave_height")
-        wind_wave_height = marine_curr.get("wind_wave_height")
-        swell_wave_height = marine_curr.get("swell_wave_height")
-        wind_speed_knots = weather_curr.get("wind_speed_10m")
-        wind_gusts_knots = weather_curr.get("wind_gusts_10m")
+                wave_height = marine_curr.get("wave_height")
+                wind_wave_height = marine_curr.get("wind_wave_height")
+                swell_wave_height = marine_curr.get("swell_wave_height")
+                wind_speed_knots = weather_curr.get("wind_speed_10m")
+                wind_gusts_knots = weather_curr.get("wind_gusts_10m")
+            else:
+                # Forecast logic
+                is_forecast = True
+                source_label = f"Open-Meteo API (Forecast for {target_time})"
+                
+                # Fetch hourly data
+                marine_resp = client.get(
+                    OPEN_METEO_MARINE_URL,
+                    params={
+                        "latitude": lat,
+                        "longitude": lon,
+                        "hourly": ["wave_height", "wind_wave_height", "swell_wave_height"],
+                        "timezone": "Asia/Kolkata",
+                        "forecast_days": 3
+                    },
+                )
+                marine_resp.raise_for_status()
+                marine_hourly = marine_resp.json().get("hourly", {})
+                
+                weather_resp = client.get(
+                    OPEN_METEO_WEATHER_URL,
+                    params={
+                        "latitude": lat,
+                        "longitude": lon,
+                        "hourly": ["wind_speed_10m", "wind_gusts_10m"],
+                        "wind_speed_unit": "kn",
+                        "timezone": "Asia/Kolkata",
+                        "forecast_days": 3
+                    },
+                )
+                weather_resp.raise_for_status()
+                weather_hourly = weather_resp.json().get("hourly", {})
+                
+                # Resolve index
+                times = marine_hourly.get("time", [])
+                
+                target_hour = 12
+                if "morning" in target: target_hour = 8
+                elif "evening" in target or "night" in target: target_hour = 18
+                
+                today_date = times[0][:10]
+                today_dt = datetime.strptime(today_date, "%Y-%m-%d")
+                
+                if "tomorrow" in target:
+                    from datetime import timedelta
+                    target_dt = today_dt + timedelta(days=1)
+                else:
+                    target_dt = today_dt
+                
+                target_str = f"{target_dt.strftime('%Y-%m-%d')}T{target_hour:02d}:00"
+                
+                try:
+                    idx = times.index(target_str)
+                except ValueError:
+                    idx = target_hour + (24 if "tomorrow" in target else 0)
+                    idx = min(idx, len(times)-1)
+                    
+                wave_height = marine_hourly.get("wave_height", [])[idx]
+                wind_wave_height = marine_hourly.get("wind_wave_height", [])[idx]
+                swell_wave_height = marine_hourly.get("swell_wave_height", [])[idx]
+                wind_speed_knots = weather_hourly.get("wind_speed_10m", [])[idx]
+                wind_gusts_knots = weather_hourly.get("wind_gusts_10m", [])[idx]
 
         # Allow test overrides if specified in environment
         if os.getenv("ORCA_FORCE_WAVE_HEIGHT"):
@@ -123,6 +184,8 @@ def get_storm_status(region_bbox: list[float] | None = None) -> dict:
         return {
             "source": source_label,
             "fetched_at": now_iso,
+            "is_forecast": is_forecast,
+            "target_time": target_time,
             "region_bbox": region_bbox,
             "evaluated_point": {"latitude": lat, "longitude": lon},
             "active": is_elevated_risk,

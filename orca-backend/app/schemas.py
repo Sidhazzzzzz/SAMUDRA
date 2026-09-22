@@ -18,6 +18,7 @@ class VesselTelemetry(BaseModel):
 class RouteRequestState(BaseModel):
     user_query: str
     mode: str = "fishing"
+    detected_language: str = "en"
     chat_history: list[dict] = []
     vessel: VesselTelemetry | None = None
     bounding_box: tuple[float, float, float, float] | None = None
