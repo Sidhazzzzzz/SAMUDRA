@@ -16,6 +16,42 @@ WAVE_HEIGHT_CAUTION_M = 2.0     # 2.5 * 0.80
 WIND_GUSTS_CAUTION_KNOTS = 20.0  # 25.0 * 0.80
 
 
+
+def calculate_hmi(weather_result: dict) -> float:
+    """
+    Compute the Hazardous Marine Index (HMI) as a continuous 0-10 score.
+    This acts as the single source of truth for continuous risk scaling, mathematically
+    derived from the same constants (WAVE_HEIGHT_MAX_M, WIND_GUSTS_MAX_KNOTS) 
+    that drive the evaluate_verdict priority rules.
+    
+    Formula: α·Hs + β·wind + γ·storm + δ·lightning
+    """
+    if not weather_result or weather_result.get("data_unavailable"):
+        return 0.0
+
+    wave_height = weather_result.get("wave_height_m")
+    if wave_height is None: wave_height = 0.0
+    
+    wind_gusts = weather_result.get("wind_gusts_knots")
+    if wind_gusts is None: wind_gusts = 0.0
+    
+    lightning = weather_result.get("lightning_risk")
+    if lightning is None: lightning = 0.0
+    
+    active_storm = weather_result.get("active", False)
+
+    # Normalize against the exact thresholds used in evaluate_verdict
+    # Cap individual contributors at 1.5x so an extreme value in one dimension doesn't break the scale
+    wave_risk = min(wave_height / WAVE_HEIGHT_MAX_M, 1.5)
+    wind_risk = min(wind_gusts / WIND_GUSTS_MAX_KNOTS, 1.5)
+    lightning_risk = min(lightning / 0.7, 1.5)  # 0.7 is the hardcoded LIGHTNING_THRESHOLD
+    storm_risk = 1.5 if active_storm else 0.0
+
+    # Weights: wave (35%), wind (35%), lightning (15%), storm (15%) - scaled out of 10
+    hmi = (wave_risk * 3.5) + (wind_risk * 3.5) + (lightning_risk * 1.5) + (storm_risk * 1.5)
+    
+    return min(max(hmi, 0.0), 10.0)
+
 def evaluate_verdict(
     weather_result: dict,
     pfz_result: dict | None = None,

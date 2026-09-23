@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from shapely.geometry import Point, Polygon
 
 from app.agents.weather_agent import get_storm_status
-from app.agents.risk_agent import evaluate_verdict, WAVE_HEIGHT_MAX_M, WIND_GUSTS_MAX_KNOTS
+from app.agents.risk_agent import evaluate_verdict, calculate_hmi
 
 logger = logging.getLogger("orca.agents.coastal_authority")
 
@@ -92,17 +92,7 @@ COASTAL_BLOCKS = [
     {"name": "Keelakarai", "lat": 9.23, "lon": 78.78},
 ]
 
-def calculate_hmi(wave_height_m: float, wind_gusts_knots: float) -> float:
-    """Compute a real HMI (Hazardous Marine Index) score from 0.0 to 10.0 based on real thresholds."""
-    if wave_height_m is None or wind_gusts_knots is None:
-        return 0.0
-    
-    wave_risk = min(wave_height_m / WAVE_HEIGHT_MAX_M, 1.5)
-    wind_risk = min(wind_gusts_knots / WIND_GUSTS_MAX_KNOTS, 1.5)
-    
-    # Weighted score out of 10
-    hmi = ((wave_risk * 0.6) + (wind_risk * 0.4)) * 10.0
-    return min(max(hmi, 0.0), 10.0)
+
 
 def get_coastal_block_rankings() -> list:
     """Fetch real weather data and compute HMI for coastal blocks, returning a ranked list."""
@@ -116,10 +106,10 @@ def get_coastal_block_rankings() -> list:
         # Evaluate standard verdict
         verdict = evaluate_verdict(weather)
         
-        # Calculate real HMI
+        # Calculate real HMI using the unified formula
         wave = weather.get("wave_height_m")
         wind = weather.get("wind_gusts_knots")
-        hmi = calculate_hmi(wave, wind)
+        hmi = calculate_hmi(weather)
         
         results.append({
             "block_name": block["name"],
