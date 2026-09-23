@@ -1,30 +1,23 @@
 /* CSS Reset & Variables */
 :root {
-    --bg-navy: #0B132B;
-    --bg-panel: #1C2541;
-    --bg-chat-user: #223761;
-    --bg-chat-sys: #131A2F;
+    --bg-dark: #0B0F19; /* Deep navy/black */
+    --bg-navy: rgba(15, 23, 42, 0.85); /* Slate 900 translucent */
+    --bg-panel: rgba(30, 41, 59, 0.8); /* Slate 800 translucent */
+    --accent-marine: #0EA5E9; /* Vibrant sky blue */
+    --accent-marine-glow: rgba(14, 165, 233, 0.4);
+    --text-main: #F8FAFC;
+    --text-muted: #94A3B8;
+    --status-safe: #10B981;
+    --status-caution: #F59E0B;
+    --status-nogo: #EF4444;
     
-    --text-main: #EAEBF0;
-    --text-muted: #8F9BB3;
+    --font-main: 'Inter', sans-serif;
+    --font-heading: 'Outfit', sans-serif;
     
-    --accent-marine: #3A506B;
-    --accent-signal: #FF5A5F;
-    
-    /* Status Colors */
-    --status-safe: #06D6A0;
-    --status-caution: #FFD166;
-    --status-nogo: #EF476F;
-
-    /* Unified Motion System */
-    --transition-fast: 150ms;
-    --transition-medium: 300ms;
-    --transition-slow: 500ms;
-    --ease-curve: cubic-bezier(0.4, 0.0, 0.2, 1);
-    --status-unknown: #4A5568;
-
-    --font-heading: 'Oswald', sans-serif;
-    --font-body: 'Fira Sans', sans-serif;
+    --transition-fast: 0.15s;
+    --transition-medium: 0.3s;
+    --transition-slow: 0.6s;
+    --ease-curve: cubic-bezier(0.2, 0, 0, 1);
 }
 
 * {
@@ -254,44 +247,14 @@ body {
     gap: 10px;
 }
 
-#chat-input {
-    flex: 1;
-    background-color: var(--bg-panel);
-    border: 1px solid var(--accent-marine);
-    color: var(--text-main);
-    padding: 10px 15px;
-    font-family: var(--font-body);
-    font-size: 1rem;
-    border-radius: 3px;
-    outline: none;
-    transition: border-color 0.2s;
-}
 
-#chat-input:focus {
-    border-color: var(--text-muted);
-}
 
-#send-btn {
-    background-color: var(--accent-marine);
-    color: var(--text-main);
-    border: none;
-    padding: 0 20px;
-    font-family: var(--font-heading);
-    font-size: 1rem;
-    letter-spacing: 1px;
-    cursor: pointer;
-    border-radius: 3px;
-    transition: background-color 0.2s;
-}
 
-#send-btn:hover {
-    background-color: var(--text-muted);
-    color: var(--bg-navy);
-}
-#send-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+
+
+
+
+
 
 /* Map Popups Override */
 .leaflet-popup-content-wrapper {
@@ -335,14 +298,7 @@ body {
     color: var(--text-muted);
 }
 
-.toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.95rem;
-    cursor: pointer;
-    color: var(--text-main);
-}
+
 
 .toggle-label input[type="checkbox"] {
     accent-color: var(--accent-marine);
@@ -443,40 +399,10 @@ body {
  
  
 /* Persona Switcher */
-.persona-switcher {
-    display: flex;
-    gap: 4px;
-    padding: 6px;
-    margin: 10px 20px;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 8px;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-}
-.persona-btn {
-    flex: 1;
-    padding: 8px;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-family: var(--font-heading);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    transition: all var(--transition-medium) var(--ease-curve);
-}
-.persona-btn:hover {
-    color: var(--text-main);
-    background: rgba(255, 255, 255, 0.05);
-}
-.persona-btn.active {
-    background: var(--bg-panel);
-    color: #ffffff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
-}
+
+
+
+
 
 /* System Trace Panel */
 .trace-container {
@@ -675,45 +601,200 @@ body {
 }
 
 /* ========================================================
-   SECTION 7: Unified Interactive Motion System
+   HEAVENLY UI OVERHAUL (Google / Material Aesthetic)
    ======================================================== */
-button,
-.persona-btn,
-#send-btn,
-#export-btn,
-.toggle-label,
-.trace-header,
+
+/* Glassmorphism panels */
+.sidebar, .floating-controls {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: var(--bg-navy) !important;
+    border-right: 1px solid rgba(255,255,255,0.05);
+}
+.floating-controls {
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    margin: 15px;
+}
+
+/* Beautiful Custom Checkboxes & Radios */
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    font-family: var(--font-main);
+    font-size: 0.9rem;
+    color: var(--text-main);
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: background var(--transition-fast) var(--ease-curve);
+    user-select: none;
+}
+.toggle-label:hover {
+    background: rgba(255,255,255,0.05);
+}
+.toggle-label input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-muted);
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: all var(--transition-fast) var(--ease-curve);
+    flex-shrink: 0;
+}
+.toggle-label input[type="radio"] {
+    border-radius: 50%;
+}
+.toggle-label input:checked {
+    background: var(--accent-marine);
+    border-color: var(--accent-marine);
+    box-shadow: 0 0 10px var(--accent-marine-glow);
+}
+.toggle-label input:checked::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px; height: 10px;
+    background: white;
+    border-radius: 2px;
+}
+.toggle-label input[type="radio"]:checked::after {
+    border-radius: 50%;
+    width: 8px; height: 8px;
+}
+
+/* Chat Input */
+
+
+
+/* ========================================================
+   MODERN "GOOGLE MATERIAL 3" UI OVERHAUL
+   ======================================================== */
+
+/* 1. Chat Form & Input */
 #chat-input {
-    transition: transform var(--transition-fast) var(--ease-curve), 
-                filter var(--transition-fast) var(--ease-curve), 
-                box-shadow var(--transition-fast) var(--ease-curve), 
-                background-color var(--transition-fast) var(--ease-curve), 
-                border-color var(--transition-fast) var(--ease-curve), 
-                color var(--transition-fast) var(--ease-curve) !important;
-    will-change: transform, filter;
+    flex: 1;
+    background-color: #202124;
+    color: #E8EAED;
+    border: 1px solid #3C4043;
+    padding: 12px 20px;
+    border-radius: 24px;
+    font-size: 0.95rem;
+    font-family: 'Inter', 'Fira Sans', sans-serif;
+    outline: none;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
-button:hover,
-.persona-btn:hover,
-#send-btn:hover,
-#export-btn:hover,
-.toggle-label:hover,
-.trace-header:hover,
-#chat-input:hover,
+#chat-input:hover {
+    background-color: #28292C;
+}
 #chat-input:focus {
-    transform: translateY(-2px);
-    filter: brightness(1.15);
+    background-color: #202124;
+    border-color: #8AB4F8;
+    box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
 }
 
-button:active,
-.persona-btn:active,
-#send-btn:active,
-#export-btn:active,
-.toggle-label:active,
-.trace-header:active {
+/* 2. Primary Buttons (Transmit, Export) */
+.primary-btn {
+    background-color: #8AB4F8; /* Google Blue */
+    color: #202124 !important; /* High contrast text */
+    border: none;
+    padding: 10px 24px;
+    border-radius: 24px; /* Material pill shape */
+    font-family: 'Inter', 'Fira Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.primary-btn:hover {
+    background-color: #A8C7FA;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.primary-btn:active {
+    background-color: #8AB4F8;
     transform: translateY(1px);
-    filter: brightness(0.9);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.primary-btn:disabled {
+    background-color: #3C4043;
+    color: #9AA0A6 !important;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
 }
 
+/* 3. Export Button Container */
+.export-container {
+    padding: 0 20px 15px 20px;
+}
+#export-btn {
+    width: 100%;
+}
 
-.osm-dark-filter { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+/* 4. Persona Switcher (Segmented Control) */
+.persona-switcher {
+    display: flex;
+    margin: 10px 20px 20px 20px;
+    background-color: #202124;
+    border: 1px solid #3C4043;
+    border-radius: 24px;
+    padding: 4px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+}
+.persona-btn {
+    flex: 1;
+    background: transparent;
+    color: #9AA0A6;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: 'Inter', 'Fira Sans', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+.persona-btn:hover:not(.active) {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: #E8EAED;
+}
+.persona-btn.active {
+    background-color: #8AB4F8;
+    color: #202124;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* 5. Toggles and Map Controls Hover */
+.toggle-label {
+    transition: background-color 0.2s ease, border-radius 0.2s ease;
+    padding: 4px 8px;
+    margin-left: -8px; /* Offset padding */
+}
+.toggle-label:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+/* 6. Trace Header Hover */
+.trace-header {
+    transition: background-color 0.2s ease;
+}
+.trace-header:hover {
+    background-color: #28292C; /* Slightly lighter than panel */
+}
+
+.hidden { display: none !important; }
