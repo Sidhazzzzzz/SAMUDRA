@@ -46,16 +46,33 @@
 
         <!-- Sidebar for Chat & Verdict -->
         <aside class="sidebar">
-            <header class="sidebar-header">
-                <h1>ORCA <span id="persona-title">FISHERMAN PORTAL</span></h1>
-            </header>
 
-            <div class="persona-switcher">
-                <button type="button" class="persona-btn active" data-mode="fishing">Fisherman</button>
-                <button type="button" class="persona-btn" data-mode="commercial">Commercial</button>
+            <div class="sidebar-top">
+                <header class="sidebar-header">
+                    <h1>ORCA <span id="persona-title">FISHERMAN PORTAL</span></h1>
+                </header>
+                <div class="persona-switcher">
+                    <button type="button" class="persona-btn active" data-mode="fishing">Fisherman</button>
+                    <button type="button" class="persona-btn" data-mode="commercial">Commercial</button>
+                </div>
+            </div>
+
+            <div class="sidebar-status-card">
+                <div class="status-row">
+                    <div class="status-label">SYSTEM STATUS</div>
+                    <span id="freshness-indicator" class="freshness-indicator hidden"></span>
+                    <span id="verdict-badge" class="badge" style="margin-left: auto;">AWAITING QUERY</span>
+                </div>
+                <div class="status-divider"></div>
+                <div id="verdict-reason" class="verdict-reason">
+                    No active mission selected.
+                </div>
+                <div class="status-divider"></div>
+                <button type="button" class="primary-btn secondary-btn-style" id="trace-toggle" style="width: 100%;">VIEW SYSTEM TRACE (DAG)</button>
             </div>
 
             <div id="metrics-strip" class="metrics-strip hidden">
+                <!-- Keep the SVG metrics the same, they fit the design -->
                 <div class="metric-gauge" id="metric-hmi">
                     <svg viewBox="0 0 36 36" class="circular-chart">
                         <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
@@ -78,30 +95,11 @@
                 </div>
             </div>
 
-            <div id="verdict-panel" class="verdict-panel status-unknown">
-                <div class="verdict-header">
-                    <div>
-                        <span class="verdict-title">SYSTEM STATUS</span>
-                        <span id="freshness-indicator" class="freshness-indicator hidden"></span>
-                    </div>
-                    <span id="verdict-badge" class="badge">AWAITING QUERY</span>
-                </div>
-                <div id="verdict-reason" class="verdict-reason">
-                    No active mission selected.
-                </div>
-            </div>
-
-            <div class="export-container">
-                <button id="export-btn" class="hidden primary-btn">Export Advisory (PDF)</button>
-            </div>
-            <div class="trace-container">
-                <button type="button" class="primary-btn" id="trace-toggle" style="width: 100%; margin-top: 10px;">VIEW SYSTEM TRACE (DAG)</button>
-            </div>
-
             <div id="chat-history" class="chat-history">
                 <div class="message system-msg">
                     <strong>ORCA SYSTEM:</strong> Ready to assist. Please specify your query (e.g., "Is it safe to fish near Rameswaram?").
                 </div>
+                <!-- Advisory messages will get the PDF export button attached to them in JS -->
             </div>
 
             <div class="chat-input-area">
@@ -114,6 +112,7 @@
                     <button type="submit" id="send-btn" class="primary-btn">TRANSMIT</button>
                 </form>
             </div>
+
         </aside>
     </div>
 

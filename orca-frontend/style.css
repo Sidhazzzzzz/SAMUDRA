@@ -1,15 +1,19 @@
 /* CSS Reset & Variables */
 :root {
-    /* Admiralty Chart Conventions */
-    --bg-dark: #EAE3DA;      /* Replaces old dark background with tan/buff (Land) */
-    --bg-navy: #F4EFEA;      /* Base sidebar background (Buff) */
-    --bg-panel: #FDFBF7;     /* Bright card background (White-ish buff) */
-    
-    --text-main: #111111;    /* Chart-black for linework and text */
-    --text-muted: #555555;   
-    
-    --accent-marine: #3A6B8C; /* Depth-banded blue (medium deep) */
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    /* Admiralty Chart Conventions (Only for Map / Accents / Modal) */
+    --accent-marine: #3A6B8C;
     --accent-marine-glow: rgba(58, 107, 140, 0.3);
+
+    /* Dark Theme Base */
+    --bg-dark: #0B101E;
+    --bg-navy: #151B2B;
+    --bg-panel: #1C2541;
+    
+    --text-main: #FFFFFF;
+    --text-muted: #8D99AE;
     
     --alert-safe: #5C8CA3;
     --alert-caution: #FFD700; /* Hazard yellow */
@@ -94,19 +98,9 @@ body {
     transition: all 0.3s ease;
 }
 
-.verdict-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
 
-.verdict-title {
-    font-family: var(--font-heading);
-    font-size: 0.9rem;
-    letter-spacing: 1.5px;
-    color: var(--text-muted);
-}
+
+
 
 .badge {
     font-family: var(--font-heading);
@@ -118,11 +112,7 @@ body {
     text-transform: uppercase;
 }
 
-.verdict-reason {
-    font-size: 0.95rem;
-    line-height: 1.4;
-    color: var(--text-main);
-}
+
 
 /* Status Specific Styles */
 .status-unknown {
@@ -537,7 +527,7 @@ body {
     justify-content: space-around;
     padding: 10px 0;
     background-color: var(--bg-panel);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     animation: fadeIn var(--transition-medium) var(--ease-curve);
 }
 .metric-gauge {
@@ -683,9 +673,9 @@ body {
 /* 1. Chat Form & Input */
 #chat-input {
     flex: 1;
-    background-color: #FFFFFF;
-    color: var(--text-main);
-    border: 1px solid #CCCCCC;
+    background-color: #0B101E;
+    color: #FFFFFF;
+    border: 1px solid #1C2541;
     padding: 12px 20px;
     border-radius: 24px;
     font-size: 0.95rem;
@@ -694,7 +684,7 @@ body {
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 #chat-input:hover {
-    background-color: #F8F4F0;
+    background-color: #1C2541;
 }
 #chat-input:focus {
     background-color: #FFFFFF;
@@ -749,8 +739,8 @@ body {
 .persona-switcher {
     display: flex;
     margin: 10px 20px 20px 20px;
-    background-color: #FFFFFF;
-    border: 1px solid #CCCCCC;
+    background-color: #0B101E;
+    border: 1px solid #1C2541;
     border-radius: 24px;
     padding: 4px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
@@ -771,7 +761,7 @@ body {
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 .persona-btn:hover:not(.active) {
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: rgba(255, 255, 255, 0.04);
     color: var(--text-main);
 }
 .persona-btn.active {
@@ -787,7 +777,7 @@ body {
     margin-left: -8px; /* Offset padding */
 }
 .toggle-label:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.05);
     border-radius: 4px;
 }
 
@@ -796,7 +786,7 @@ body {
     transition: background-color 0.2s ease;
 }
 .trace-header:hover {
-    background-color: #F8F4F0; /* Slightly lighter than panel */
+    background-color: #1C2541; /* Slightly lighter than panel */
 }
 
 .hidden { display: none !important; }
@@ -827,7 +817,8 @@ body {
     pointer-events: auto;
 }
 .dag-modal-content {
-    background: var(--bg-panel);
+    background: #FDFBF7;
+    color: #111111;
     width: 90%;
     max-width: 1000px;
     height: 80vh;
@@ -858,7 +849,7 @@ body {
 }
 .dag-modal-content h2 {
     font-family: var(--font-heading);
-    color: var(--text-main);
+    color: #111111;
     text-align: center;
     margin-top: 0;
     margin-bottom: 50px;
@@ -913,8 +904,9 @@ body {
     transform: translateY(0);
 }
 .dag-node-circle {
-    width: 32px; height: 32px;
-    background: var(--bg-panel);
+    width: 40px; height: 40px;
+    font-size: 1.2rem;
+    background: #FDFBF7;
     border: 3px solid #DDDDDD;
     border-radius: 50%;
     margin-bottom: 15px;
@@ -934,13 +926,13 @@ body {
     box-shadow: 0 0 15px var(--accent-marine-glow);
 }
 /* If source is error, use magenta */
-.dag-node.error .dag-node-circle {
+.dag-node.active.error .dag-node-circle {
     border-color: var(--alert-nogo);
     background: var(--alert-nogo);
     box-shadow: 0 0 15px rgba(216, 27, 96, 0.4);
 }
 /* If source is fallback, use caution yellow */
-.dag-node.fallback .dag-node-circle {
+.dag-node.active.fallback .dag-node-circle {
     border-color: var(--alert-caution);
     background: var(--alert-caution);
     box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
@@ -950,21 +942,121 @@ body {
     font-family: var(--font-heading);
     font-size: 0.8rem;
     font-weight: 700;
-    color: var(--text-main);
+    color: #111111;
     text-align: center;
     text-transform: uppercase;
 }
 .dag-node-time {
     font-family: monospace;
     font-size: 0.7rem;
-    color: var(--text-muted);
+    color: #555555;
     margin-top: 5px;
     text-align: center;
 }
 .dag-node-summary {
     font-size: 0.65rem;
-    color: var(--text-muted);
+    color: #555555;
     text-align: center;
     margin-top: 5px;
     max-width: 120px;
+}
+
+/* ========================================================
+   SECTION 9: SIDEBAR LAYOUT & GROUPING
+   ======================================================== */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: var(--space-md);
+    gap: var(--space-md);
+    box-sizing: border-box;
+}
+.sidebar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: transparent;
+    padding: 0;
+    border-bottom: none;
+}
+.sidebar-header {
+    padding: 0;
+    background: transparent;
+    border-bottom: none;
+}
+.sidebar-header h1 {
+    margin: 0;
+}
+.persona-switcher {
+    margin: 0;
+    width: 200px; /* compact */
+}
+.sidebar-status-card {
+    background-color: var(--bg-panel);
+    border-radius: 12px;
+    padding: var(--space-md);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.status-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+.status-label {
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+.status-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: var(--space-sm) 0;
+}
+.verdict-reason {
+    font-size: 0.9rem;
+    color: var(--text-main);
+    line-height: 1.4;
+}
+.secondary-btn-style {
+    background: transparent;
+    border: 1px solid var(--accent-marine);
+    color: var(--accent-marine) !important;
+}
+.secondary-btn-style:hover {
+    background: rgba(58, 107, 140, 0.1);
+}
+
+.chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+    padding-right: 5px; /* for scrollbar */
+    margin-bottom: 0;
+}
+.chat-history::-webkit-scrollbar {
+    width: 6px;
+}
+.chat-history::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+.chat-input-area {
+    margin-top: auto;
+    background: var(--bg-navy);
+    border-radius: 12px;
+    padding: var(--space-sm);
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.export-advisory-btn {
+    margin-top: var(--space-sm);
+    width: 100%;
+    font-size: 0.8rem;
+    padding: 8px 16px;
 }

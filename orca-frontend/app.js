@@ -287,8 +287,52 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSystemResponse(data) {
         // Store lastState for PDF export
         window.lastState = data;
-        const exportBtn = document.getElementById('export-btn');
-        if (exportBtn) exportBtn.classList.remove('hidden');
+        // Create/move export button to the latest system message
+        let exportBtn = document.getElementById('export-btn');
+        if (!exportBtn) {
+            exportBtn = document.createElement('button');
+            exportBtn.id = 'export-btn';
+            exportBtn.className = 'primary-btn export-advisory-btn';
+            exportBtn.textContent = 'Export Advisory (PDF)';
+            
+            exportBtn.addEventListener('click', async () => {
+                if (!window.lastState) return;
+                const originalText = exportBtn.textContent;
+                exportBtn.textContent = 'Generating PDF...';
+                exportBtn.disabled = true;
+                try {
+                    const response = await fetch('http://localhost:8000/export-pdf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(window.lastState)
+                    });
+                    if (!response.ok) throw new Error('PDF export failed');
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'orca_advisory.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                } catch (err) {
+                    console.error(err);
+                    alert('Failed to export PDF.');
+                } finally {
+                    exportBtn.textContent = originalText;
+                    exportBtn.disabled = false;
+                }
+            });
+        }
+        exportBtn.classList.remove('hidden');
+        
+        // Find the last message (which is the one we just added) and append the button
+        const lastMsg = chatHistory.lastElementChild;
+        if (lastMsg) {
+            lastMsg.appendChild(exportBtn);
+        }
+
 
         // Update System Trace & Freshness
         if (data.execution_trace) {
@@ -604,6 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateTracePanel(traceData) {
         const dagNodesContainer = document.getElementById('dag-nodes');
         const dagLineFill = document.getElementById('dag-line-fill');
+        if (!dagNodesContainer || !dagLineFill) return;
         dagNodesContainer.innerHTML = '';
         dagLineFill.style.width = '0%';
         
@@ -612,73 +657,88 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        let currentDelay = 0;
         const totalNodes = traceData.length;
+        
+        // Find the max duration to scale animation times
+        let maxDuration = 10;
+        traceData.forEach(step => {
+            if (step.duration_ms > maxDuration) maxDuration = step.duration_ms;
+        });
+        
+        // Define animation base speed
+        const baseDelay = 400; 
+        let cumulativeDelay = 300;
         
         traceData.forEach((step, index) => {
             const node = document.createElement('div');
-            // If source is error/fallback, add that class for color styling
-            let sourceClass = '';
-            if (step.source === 'error' || step.source === 'mock_error') sourceClass = 'error';
-            else if (step.source === 'fallback') sourceClass = 'fallback';
-            else sourceClass = 'live';
+            
+            let sourceClass = 'live';
+            const src = step.source_type || step.source || '';
+            const summ = step.summary || '';
+            if (src === 'error' || src === 'mock_error' || summ.includes('error') || summ.includes('failed') || summ.includes('No valid route')) {
+                sourceClass = 'error';
+            } else if (src === 'fallback' || src === 'mock_fallback') {
+                sourceClass = 'fallback';
+            } else if (step.duration_ms > (maxDuration * 0.8) && maxDuration > 1000) {
+                // Unusually long relative to others (amber)
+                sourceClass = 'fallback'; 
+            }
             
             node.className = `dag-node ${sourceClass}`;
             
+            // Icons based on stage
+            let icon = '⚙️';
+            const stageLower = step.stage.toLowerCase();
+            if (stageLower.includes('intent')) icon = '🧠';
+            else if (stageLower.includes('pfz') || stageLower.includes('weather') || stageLower.includes('route') || stageLower.includes('tool')) icon = '📡';
+            else if (stageLower.includes('verdict')) icon = '⚖️';
+            else if (stageLower.includes('narrat')) icon = '📝';
+            
             node.innerHTML = `
-                <div class="dag-node-circle">${index + 1}</div>
-                <div class="dag-node-label">${step.stage.replace('_agent', '').replace('_parser', '')}</div>
-                <div class="dag-node-time">${step.duration_ms} ms</div>
-                <div class="dag-node-summary">${step.summary || step.source}</div>
+                <div class="dag-node-circle" style="transform: scale(0); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">${icon}</div>
+                <div class="dag-node-label" style="opacity:0; transition: opacity 0.3s;">${step.stage.replace('_agent', '').replace('_parser', '').replace('tool_execution: ', '')}</div>
+                <div class="dag-node-time" style="opacity:0; transition: opacity 0.3s;">${step.duration_ms} ms</div>
+                <div class="dag-node-summary" style="opacity:0; transition: opacity 0.3s;">${step.summary}</div>
             `;
             
             dagNodesContainer.appendChild(node);
             
+            // Calculate proportional delay based on this step's real duration (scaled)
+            let animTime = (step.duration_ms / maxDuration) * 1000;
+            if (animTime > 1500) animTime = 1500;
+            if (animTime < 200) animTime = 200;
+            
             // Animate sequentially
             setTimeout(() => {
                 node.classList.add('active');
-                // Calculate percentage for the line fill (from first node to current node)
-                // If there's 1 node, it's 0. If 5 nodes, node 0=0%, node 4=100%
-                const pct = totalNodes > 1 ? (index / (totalNodes - 1)) * 100 : 100;
-                dagLineFill.style.width = `${pct}%`;
-            }, 300 + (index * 400)); // 400ms interval between nodes
-        });
-    }
+                
+                // Pop-in circle
+                const circle = node.querySelector('.dag-node-circle');
+                circle.style.transform = 'scale(1.1)';
+                
+                // Add glowing pulse to current node
+                circle.style.boxShadow = sourceClass === 'error' ? '0 0 25px rgba(216, 27, 96, 0.8)' : 
+                                         sourceClass === 'fallback' ? '0 0 25px rgba(255, 215, 0, 0.8)' : 
+                                         '0 0 25px rgba(58, 107, 140, 0.8)';
+                
+                // Show text
+                node.querySelectorAll('div').forEach(el => el.style.opacity = '1');
+                
+                setTimeout(() => {
+                    // Settle scale and glow
+                    circle.style.transform = 'scale(1)';
+                    circle.style.boxShadow = sourceClass === 'error' ? '0 0 10px rgba(216, 27, 96, 0.4)' : 
+                                         sourceClass === 'fallback' ? '0 0 10px rgba(255, 215, 0, 0.4)' : 
+                                         '0 0 10px rgba(58, 107, 140, 0.4)';
+                }, 400);
 
-    // PDF Export Logic
-    const exportBtn = document.getElementById('export-btn');
-    if (exportBtn) {
-        exportBtn.addEventListener('click', async () => {
-            if (!window.lastState) return;
-            
-            const originalText = exportBtn.textContent;
-            exportBtn.textContent = 'Generating PDF...';
-            exportBtn.disabled = true;
-            
-            try {
-                const response = await fetch('http://localhost:8000/export-pdf', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(window.lastState)
-                });
+                // Draw line fill smoothly to this node
+                const pct = totalNodes > 1 ? (index / (totalNodes - 1)) * 100 : 100;
+                dagLineFill.style.transition = `width ${animTime}ms linear`;
+                dagLineFill.style.width = `${pct}%`;
                 
-                if (!response.ok) throw new Error('PDF export failed');
-                
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = `ORCA_Advisory_${new Date().getTime()}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-            } catch (err) {
-                console.error(err);
-                alert('Failed to export PDF.');
-            } finally {
-                exportBtn.textContent = originalText;
-                exportBtn.disabled = false;
-            }
+            }, cumulativeDelay);
+            
+            cumulativeDelay += animTime + 100;
         });
     }

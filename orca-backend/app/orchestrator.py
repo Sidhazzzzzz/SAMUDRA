@@ -287,7 +287,8 @@ _NARRATION_SYSTEM = (
     "4. If mpa_caution is true, clearly mention the route intersects the provided MPA/Sector name, using only the provided name without inventing regulatory language.\n"
     "5. When describing PFZ advisories, ALWAYS use the bearing/distance/depth guidance from the named landing centre provided in the data.\n"
     "6. Include real SST and Chlorophyll values when present ('sea surface temperature X°C, chlorophyll Y mg/m³ near [location]') without fabricating a value when the fetch returns null — in that case simply omit the SST/chlorophyll line.\n"
-    "7. Use simple language a non-technical mariner can understand.\n"
+    "7. If a route was requested but no waypoints were returned, explicitly state that no valid or safe route could be found.\n"
+    "8. Use simple language a non-technical mariner can understand.\n"
     "8. Keep the response under 200 words.\n"
 )
 
@@ -401,8 +402,18 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
             elif tool_name == "get_storm_status":
                 summary = f"Fetched weather status, source={source_type}"
             elif tool_name in ["get_route_between", "plan_fishing_route", "plan_commercial_route"]:
-                waypoints = result.get("waypoints", [])
-                summary = f"Calculated route with {len(waypoints)} waypoints, source={source_type}"
+                route_dict = result.get("route", {}) if tool_name == "plan_fishing_route" else result
+                waypoints = route_dict.get("waypoints", [])
+                err_msg = route_dict.get("error")
+                
+                if err_msg:
+                    source_type = "error"
+                    summary = f"Route error: {err_msg}"
+                elif len(waypoints) == 0:
+                    source_type = "error"
+                    summary = "No valid route found"
+                else:
+                    summary = f"Calculated route with {len(waypoints)} waypoints, source={source_type}"
                 
             append_trace(state, f"tool_execution: {tool_name}", t0_tool, summary, source_type)
         except Exception as exc:
