@@ -1,23 +1,25 @@
 /* CSS Reset & Variables */
 :root {
-    --bg-dark: #0B0F19; /* Deep navy/black */
-    --bg-navy: rgba(15, 23, 42, 0.85); /* Slate 900 translucent */
-    --bg-panel: rgba(30, 41, 59, 0.8); /* Slate 800 translucent */
-    --accent-marine: #0EA5E9; /* Vibrant sky blue */
-    --accent-marine-glow: rgba(14, 165, 233, 0.4);
-    --text-main: #F8FAFC;
-    --text-muted: #94A3B8;
-    --status-safe: #10B981;
-    --status-caution: #F59E0B;
-    --status-nogo: #EF4444;
+    /* Admiralty Chart Conventions */
+    --bg-dark: #EAE3DA;      /* Replaces old dark background with tan/buff (Land) */
+    --bg-navy: #F4EFEA;      /* Base sidebar background (Buff) */
+    --bg-panel: #FDFBF7;     /* Bright card background (White-ish buff) */
     
-    --font-main: 'Inter', sans-serif;
-    --font-heading: 'Outfit', sans-serif;
+    --text-main: #111111;    /* Chart-black for linework and text */
+    --text-muted: #555555;   
     
-    --transition-fast: 0.15s;
-    --transition-medium: 0.3s;
-    --transition-slow: 0.6s;
-    --ease-curve: cubic-bezier(0.2, 0, 0, 1);
+    --accent-marine: #3A6B8C; /* Depth-banded blue (medium deep) */
+    --accent-marine-glow: rgba(58, 107, 140, 0.3);
+    
+    --alert-safe: #5C8CA3;
+    --alert-caution: #FFD700; /* Hazard yellow */
+    --alert-nogo: #D81B60;    /* Chart magenta */
+    --alert-unknown: #888888;
+    
+    --transition-fast: 0.2s;
+    --transition-medium: 0.4s;
+    --transition-slow: 0.8s;
+    --ease-curve: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -124,27 +126,27 @@ body {
 
 /* Status Specific Styles */
 .status-unknown {
-    border-left: 6px solid var(--status-unknown);
+    border-left: 6px solid var(--alert-unknown);
 }
-.status-unknown .badge { background-color: var(--status-unknown); color: #fff; }
+.status-unknown .badge { background-color: var(--alert-unknown); color: #fff; }
 
 .status-safe {
-    border-left: 6px solid var(--status-safe);
-    background-color: rgba(6, 214, 160, 0.1);
+    border-left: 6px solid var(--alert-safe);
+    background-color: rgba(92, 140, 163, 0.1);
 }
-.status-safe .badge { background-color: var(--status-safe); color: #000; }
+.status-safe .badge { background-color: var(--alert-safe); color: #000; }
 
 .status-caution {
-    border-left: 6px solid var(--status-caution);
-    background-color: rgba(255, 209, 102, 0.1);
+    border-left: 6px solid var(--alert-caution);
+    background-color: rgba(255, 215, 0, 0.1);
 }
-.status-caution .badge { background-color: var(--status-caution); color: #000; }
+.status-caution .badge { background-color: var(--alert-caution); color: #000; }
 
 .status-nogo {
-    border-left: 6px solid var(--status-nogo);
-    background-color: rgba(239, 71, 111, 0.1);
+    border-left: 6px solid var(--alert-nogo);
+    background-color: rgba(216, 27, 96, 0.1);
 }
-.status-nogo .badge { background-color: var(--status-nogo); color: #fff; }
+.status-nogo .badge { background-color: var(--alert-nogo); color: #fff; }
 
 
 /* Chat Area */
@@ -202,10 +204,10 @@ body {
     color: var(--text-muted);
 }
 .error-msg {
-    border-left-color: var(--status-nogo);
+    border-left-color: var(--alert-nogo);
 }
 .error-msg strong {
-    color: var(--status-nogo);
+    color: var(--alert-nogo);
 }
 
 /* Input Area */
@@ -218,7 +220,7 @@ body {
 .loading-indicator {
     font-family: var(--font-heading);
     font-size: 0.85rem;
-    color: var(--status-caution);
+    color: var(--alert-caution);
     margin-bottom: 10px;
     display: flex;
     align-items: center;
@@ -233,7 +235,7 @@ body {
     width: 14px;
     height: 14px;
     border: 2px solid rgba(255, 209, 102, 0.3);
-    border-top-color: var(--status-caution);
+    border-top-color: var(--alert-caution);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -516,7 +518,7 @@ body {
    SECTION 1: Fallback Errors
    ======================================================== */
 .layer-error {
-    color: var(--status-caution);
+    color: var(--alert-caution);
     font-size: 0.85em;
     margin-left: 6px;
     animation: fadeIn var(--transition-medium) var(--ease-curve);
@@ -535,7 +537,7 @@ body {
     justify-content: space-around;
     padding: 10px 0;
     background-color: var(--bg-panel);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     animation: fadeIn var(--transition-medium) var(--ease-curve);
 }
 .metric-gauge {
@@ -551,7 +553,7 @@ body {
 }
 .circle-bg {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.1);
+    stroke: rgba(0, 0, 0, 0.1);
     stroke-width: 3.8;
 }
 .circle {
@@ -681,9 +683,9 @@ body {
 /* 1. Chat Form & Input */
 #chat-input {
     flex: 1;
-    background-color: #202124;
-    color: #E8EAED;
-    border: 1px solid #3C4043;
+    background-color: #FFFFFF;
+    color: var(--text-main);
+    border: 1px solid #CCCCCC;
     padding: 12px 20px;
     border-radius: 24px;
     font-size: 0.95rem;
@@ -692,18 +694,18 @@ body {
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 #chat-input:hover {
-    background-color: #28292C;
+    background-color: #F8F4F0;
 }
 #chat-input:focus {
-    background-color: #202124;
+    background-color: #FFFFFF;
     border-color: #8AB4F8;
     box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
 }
 
 /* 2. Primary Buttons (Transmit, Export) */
 .primary-btn {
-    background-color: #8AB4F8; /* Google Blue */
-    color: #202124 !important; /* High contrast text */
+    background-color: var(--accent-marine); /* Google Blue */
+    color: #FFFFFF !important; /* High contrast text */
     border: none;
     padding: 10px 24px;
     border-radius: 24px; /* Material pill shape */
@@ -719,11 +721,11 @@ body {
     justify-content: center;
 }
 .primary-btn:hover {
-    background-color: #A8C7FA;
+    background-color: #4A86A8;
     box-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
 .primary-btn:active {
-    background-color: #8AB4F8;
+    background-color: var(--accent-marine);
     transform: translateY(1px);
     box-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
@@ -747,8 +749,8 @@ body {
 .persona-switcher {
     display: flex;
     margin: 10px 20px 20px 20px;
-    background-color: #202124;
-    border: 1px solid #3C4043;
+    background-color: #FFFFFF;
+    border: 1px solid #CCCCCC;
     border-radius: 24px;
     padding: 4px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
@@ -769,12 +771,12 @@ body {
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 .persona-btn:hover:not(.active) {
-    background-color: rgba(255, 255, 255, 0.04);
-    color: #E8EAED;
+    background-color: rgba(0, 0, 0, 0.04);
+    color: var(--text-main);
 }
 .persona-btn.active {
-    background-color: #8AB4F8;
-    color: #202124;
+    background-color: var(--accent-marine);
+    color: #FFFFFF;
     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
@@ -785,7 +787,7 @@ body {
     margin-left: -8px; /* Offset padding */
 }
 .toggle-label:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(0, 0, 0, 0.05);
     border-radius: 4px;
 }
 
@@ -794,7 +796,175 @@ body {
     transition: background-color 0.2s ease;
 }
 .trace-header:hover {
-    background-color: #28292C; /* Slightly lighter than panel */
+    background-color: #F8F4F0; /* Slightly lighter than panel */
 }
 
 .hidden { display: none !important; }
+
+
+/* Dark Matter Filter */
+.osm-dark-filter { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+
+
+/* ========================================================
+   SECTION 8: FULL-SCREEN DAG MODAL
+   ======================================================== */
+.dag-modal {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(17, 17, 17, 0.85); /* Dark overlay */
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-medium) var(--ease-curve);
+    backdrop-filter: blur(4px);
+}
+.dag-modal.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+.dag-modal-content {
+    background: var(--bg-panel);
+    width: 90%;
+    max-width: 1000px;
+    height: 80vh;
+    border-radius: 12px;
+    padding: 40px;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    transform: translateY(20px);
+    transition: transform var(--transition-medium) var(--ease-curve);
+}
+.dag-modal.show .dag-modal-content {
+    transform: translateY(0);
+}
+.dag-close-btn {
+    position: absolute;
+    top: 20px; right: 25px;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+.dag-close-btn:hover {
+    color: var(--alert-nogo); /* Magenta on hover to close */
+}
+.dag-modal-content h2 {
+    font-family: var(--font-heading);
+    color: var(--text-main);
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 50px;
+    letter-spacing: 2px;
+}
+
+/* Linear Pipeline */
+.dag-pipeline-container {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 40px;
+}
+.dag-line-bg {
+    position: absolute;
+    top: 50%; left: 40px; right: 40px;
+    height: 4px;
+    background: #DDDDDD;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+.dag-line-fill {
+    position: absolute;
+    top: 50%; left: 40px;
+    height: 4px;
+    background: var(--accent-marine); /* Blue filling line */
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 0%; /* Animates via JS */
+    transition: width linear;
+}
+.dag-nodes {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    position: relative;
+    z-index: 3;
+}
+.dag-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100px;
+    opacity: 0.3; /* Default unlit */
+    transform: translateY(10px);
+    transition: all var(--transition-medium) var(--ease-curve);
+}
+.dag-node.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+.dag-node-circle {
+    width: 32px; height: 32px;
+    background: var(--bg-panel);
+    border: 3px solid #DDDDDD;
+    border-radius: 50%;
+    margin-bottom: 15px;
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+    transition: all var(--transition-medium) var(--ease-curve);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: transparent;
+}
+.dag-node.active .dag-node-circle {
+    border-color: var(--accent-marine);
+    background: var(--accent-marine);
+    color: #FFFFFF;
+    box-shadow: 0 0 15px var(--accent-marine-glow);
+}
+/* If source is error, use magenta */
+.dag-node.error .dag-node-circle {
+    border-color: var(--alert-nogo);
+    background: var(--alert-nogo);
+    box-shadow: 0 0 15px rgba(216, 27, 96, 0.4);
+}
+/* If source is fallback, use caution yellow */
+.dag-node.fallback .dag-node-circle {
+    border-color: var(--alert-caution);
+    background: var(--alert-caution);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+    color: var(--text-main);
+}
+.dag-node-label {
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-main);
+    text-align: center;
+    text-transform: uppercase;
+}
+.dag-node-time {
+    font-family: monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 5px;
+    text-align: center;
+}
+.dag-node-summary {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 5px;
+    max-width: 120px;
+}

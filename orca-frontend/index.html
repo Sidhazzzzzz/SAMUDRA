@@ -95,13 +95,7 @@
                 <button id="export-btn" class="hidden primary-btn">Export Advisory (PDF)</button>
             </div>
             <div class="trace-container">
-                <div class="trace-header" id="trace-toggle">
-                    <span>SYSTEM TRACE (DAG)</span>
-                    <span id="trace-icon">▼</span>
-                </div>
-                <div class="trace-content hidden" id="trace-content">
-                    <ul id="trace-list"></ul>
-                </div>
+                <button type="button" class="primary-btn" id="trace-toggle" style="width: 100%; margin-top: 10px;">VIEW SYSTEM TRACE (DAG)</button>
             </div>
 
             <div id="chat-history" class="chat-history">
@@ -127,6 +121,22 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Marked.js for Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- Full-screen DAG Modal -->
+    <div id="dag-modal" class="dag-modal hidden">
+        <div class="dag-modal-content">
+            <button id="dag-close-btn" class="dag-close-btn">&times;</button>
+            <h2>SYSTEM TRACE (DAG)</h2>
+            <div class="dag-pipeline-container">
+                <div class="dag-line-bg"></div>
+                <div class="dag-line-fill" id="dag-line-fill"></div>
+                <div class="dag-nodes" id="dag-nodes">
+                    <!-- Nodes injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom JS -->
     <script src="app.js"></script>
 </body>

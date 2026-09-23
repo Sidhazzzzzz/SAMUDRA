@@ -344,11 +344,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const [minLat, minLon, maxLat, maxLon] = weather.region_bbox;
                 const rectBounds = [[minLat, minLon], [maxLat, maxLon]];
                 
-                let blobColor = '#06D6A0';
+                let blobColor = '#5C8CA3';
                 if (weather.active || overallStatus === 'NO-GO') {
-                    blobColor = '#EF476F';
+                    blobColor = '#D81B60';
                 } else if (overallStatus === 'CAUTION') {
-                    blobColor = '#FFD166';
+                    blobColor = '#FFD700';
                 }
 
                 // Use a standard rectangle but apply a heavy CSS blur to create a soft, geographic heatmap blob
@@ -371,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pane: 'pfzPane',
                 style: function(feature) {
                     return {
-                        color: '#06D6A0',
+                        color: '#5C8CA3',
                         weight: 4,
                         opacity: 0.8
                     };
@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const smoothedLatLngs = catmullRomSpline(rawLatlngs, 10);
             
             const routeLine = L.polyline(smoothedLatLngs, {
-                color: '#FFD166',
+                color: '#111111',
                 weight: 5, // Increased from 4
                 dashArray: '5, 10',
                 lineJoin: 'round',
@@ -444,8 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const start = data.optimized_route[0];
             L.circleMarker([start.lat, start.lon], {
                 radius: 6,
-                color: '#FFD166',
-                fillColor: '#1C2541',
+                color: '#111111',
+                fillColor: '#F4EFEA',
                 fillOpacity: 1,
                 weight: 3,
                 pane: 'routePane'
@@ -454,8 +454,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const end = data.optimized_route[data.optimized_route.length - 1];
             L.circleMarker([end.lat, end.lon], {
                 radius: 6,
-                color: '#EF476F',
-                fillColor: '#1C2541',
+                color: '#111111',
+                fillColor: '#F4EFEA',
                 fillOpacity: 1,
                 weight: 3,
                 pane: 'routePane'
@@ -579,48 +579,71 @@ document.addEventListener('DOMContentLoaded', () => {
     const traceIcon = document.getElementById('trace-icon');
     const traceList = document.getElementById('trace-list');
 
+    const dagModal = document.getElementById('dag-modal');
+    const dagCloseBtn = document.getElementById('dag-close-btn');
+    
     traceToggle.addEventListener('click', () => {
-        traceContent.classList.toggle('hidden');
-        traceIcon.textContent = traceContent.classList.contains('hidden') ? '▼' : '▲';
+        dagModal.classList.remove('hidden');
+        // trigger reflow
+        void dagModal.offsetWidth;
+        dagModal.classList.add('show');
+    });
+    
+    dagCloseBtn.addEventListener('click', () => {
+        dagModal.classList.remove('show');
+        setTimeout(() => dagModal.classList.add('hidden'), 400);
+    });
+    
+    dagModal.addEventListener('click', (e) => {
+        if (e.target === dagModal) {
+            dagModal.classList.remove('show');
+            setTimeout(() => dagModal.classList.add('hidden'), 400);
+        }
     });
 
     function updateTracePanel(traceData) {
-        traceList.innerHTML = '';
+        const dagNodesContainer = document.getElementById('dag-nodes');
+        const dagLineFill = document.getElementById('dag-line-fill');
+        dagNodesContainer.innerHTML = '';
+        dagLineFill.style.width = '0%';
+        
         if (!traceData || traceData.length === 0) {
-            traceList.innerHTML = '<li class="trace-item"><span class="trace-item-summary">No trace data available.</span></li>';
+            dagNodesContainer.innerHTML = '<div style="color:var(--text-muted);">No trace data available.</div>';
             return;
         }
 
+        let currentDelay = 0;
+        const totalNodes = traceData.length;
+        
         traceData.forEach((step, index) => {
-            const li = document.createElement('li');
-            li.className = `trace-item source-${step.source_type}`;
+            const node = document.createElement('div');
+            // If source is error/fallback, add that class for color styling
+            let sourceClass = '';
+            if (step.source === 'error' || step.source === 'mock_error') sourceClass = 'error';
+            else if (step.source === 'fallback') sourceClass = 'fallback';
+            else sourceClass = 'live';
             
-            const header = document.createElement('div');
-            header.className = 'trace-item-header';
+            node.className = `dag-node ${sourceClass}`;
             
-            const stageSpan = document.createElement('span');
-            stageSpan.textContent = step.stage.toUpperCase();
+            node.innerHTML = `
+                <div class="dag-node-circle">${index + 1}</div>
+                <div class="dag-node-label">${step.stage.replace('_agent', '').replace('_parser', '')}</div>
+                <div class="dag-node-time">${step.duration_ms} ms</div>
+                <div class="dag-node-summary">${step.summary || step.source}</div>
+            `;
             
-            const timeSpan = document.createElement('span');
-            timeSpan.textContent = `${step.duration_ms}ms`;
+            dagNodesContainer.appendChild(node);
             
-            header.appendChild(stageSpan);
-            header.appendChild(timeSpan);
-            
-            const summaryDiv = document.createElement('div');
-            summaryDiv.className = 'trace-item-summary';
-            summaryDiv.textContent = step.summary;
-            
-            li.appendChild(header);
-            li.appendChild(summaryDiv);
-            traceList.appendChild(li);
-            
+            // Animate sequentially
             setTimeout(() => {
-                li.classList.add('visible');
-            }, 100 + (index * 200));
+                node.classList.add('active');
+                // Calculate percentage for the line fill (from first node to current node)
+                // If there's 1 node, it's 0. If 5 nodes, node 0=0%, node 4=100%
+                const pct = totalNodes > 1 ? (index / (totalNodes - 1)) * 100 : 100;
+                dagLineFill.style.width = `${pct}%`;
+            }, 300 + (index * 400)); // 400ms interval between nodes
         });
     }
-
 
     // PDF Export Logic
     const exportBtn = document.getElementById('export-btn');
