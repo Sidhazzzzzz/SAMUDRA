@@ -27,6 +27,15 @@ app.add_middleware(
 
 
 # ── Request body for /query ────────────────────────────────────────────────
+class BroadcastRequest(BaseModel):
+    polygon_coordinates: list[list[float]]
+    event_type: str = "Severe Weather"
+    severity: str = "Severe"
+    urgency: str = "Immediate"
+    certainty: str = "Observed"
+    headline: str = "Hazardous Marine Conditions"
+    description: str = "Evacuate the designated zone immediately."
+
 class QueryRequest(BaseModel):
     user_query: str
     mode: str = "fishing"
@@ -50,3 +59,33 @@ async def query(body: QueryRequest) -> RouteRequestState:
 async def export_pdf(body: dict):
     pdf_bytes = generate_pdf_advisory(body)
     return Response(content=pdf_bytes, media_type="application/pdf")
+
+# Coastal Authority Endpoints
+
+@app.post("/coastal-authority/broadcast")
+def broadcast_alert(req: BroadcastRequest):
+    """
+    Checks which simulated vessels fall inside the polygon and generates a CAP 1.2 XML alert.
+    NOTE: Simulated endpoint, no external dispatch.
+    """
+    from app.agents.coastal_authority_agent import check_vessels_in_zone, generate_cap_alert
+    
+    affected = check_vessels_in_zone(req.polygon_coordinates)
+    cap_xml = generate_cap_alert(
+        req.event_type, req.severity, req.urgency, req.certainty,
+        req.headline, req.description, req.polygon_coordinates
+    )
+    
+    return {
+        "status": "success",
+        "affected_vessels": affected,
+        "cap_xml": cap_xml
+    }
+
+@app.get("/coastal-authority/block-rankings")
+def get_block_rankings():
+    """Returns coastal blocks ranked by real HMI risk scores."""
+    from app.agents.coastal_authority_agent import get_coastal_block_rankings
+    rankings = get_coastal_block_rankings()
+    return {"status": "success", "rankings": rankings}
+
