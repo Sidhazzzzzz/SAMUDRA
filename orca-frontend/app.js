@@ -40,6 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
         transparent: true,
         pane: 'chlPane'
     }).addTo(map);
+    
+    sstLayer.on('tileerror', () => markLayerError('toggle-sst'));
+    chlLayer.on('tileerror', () => markLayerError('toggle-chl'));
+    
+    sstLayer.on('tileerror', () => markLayerError('toggle-sst'));
+    chlLayer.on('tileerror', () => markLayerError('toggle-chl'));
 
     // Dynamic layer tracking for bounds
     let currentBounds = null;
@@ -56,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const verdictReason = document.getElementById('verdict-reason');
 
     // Fetch EEZ Boundary
-    fetch('https://incois.gov.in/geoserver/PFZ_EEZ/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json')
+    fetchWithTimeout('https://incois.gov.in/geoserver/PFZ_EEZ/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json')
         .then(res => res.json())
         .then(data => {
             L.geoJSON(data, {
@@ -68,10 +74,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     opacity: 0.8
                 }
             }).addTo(eezGroup);
-        }).catch(err => console.error(err));
+        }).catch(err => {
+            console.error(err);
+            markLayerError('toggle-eez');
+        });
 
     // Fetch Sectors
-    fetch('https://incois.gov.in/geoserver/PFZ_Sectors/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json')
+    fetchWithTimeout('https://incois.gov.in/geoserver/PFZ_Sectors/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json')
         .then(res => res.json())
         .then(data => {
             L.geoJSON(data, {
@@ -88,7 +97,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }).addTo(sectorsGroup);
-        }).catch(err => console.error(err));
+        }).catch(err => {
+            console.error(err);
+            markLayerError('toggle-sectors');
+        });
 
     // Toggle logic
     const togglePfz = document.getElementById('toggle-pfz');
@@ -174,13 +186,21 @@ document.addEventListener('DOMContentLoaded', () => {
             currentMode = e.target.dataset.mode;
             
             const title = document.getElementById('persona-title');
-            if (currentMode === "commercial") {
-                title.textContent = "COMMERCIAL NAVIGATOR";
-                chatInput.placeholder = "e.g., plan a commercial route from Rameswaram to Mandapam...";
-            } else {
-                title.textContent = "FISHERMAN PORTAL";
-                chatInput.placeholder = "Enter coordinates, mission, or ask for a route...";
-            }
+            const headerTitle = document.querySelector('.sidebar-header h1');
+            headerTitle.classList.add('persona-switching');
+            chatInput.classList.add('persona-switching');
+            
+            setTimeout(() => {
+                if (currentMode === "commercial") {
+                    title.textContent = "COMMERCIAL NAVIGATOR";
+                    chatInput.placeholder = "e.g., plan a commercial route from Rameswaram to Mandapam...";
+                } else {
+                    title.textContent = "FISHERMAN PORTAL";
+                    chatInput.placeholder = "Enter coordinates, mission, or ask for a route...";
+                }
+                headerTitle.classList.remove('persona-switching');
+                chatInput.classList.remove('persona-switching');
+            }, 300);
         });
     });
 
@@ -422,6 +442,57 @@ document.addEventListener('DOMContentLoaded', () => {
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
+    function updateMetricsPanel(data) {
+        const strip = document.getElementById('metrics-strip');
+        if (!data.optimized_route || data.optimized_route.length === 0) {
+            strip.classList.add('hidden');
+            return;
+        }
+        strip.classList.remove('hidden');
+
+        let hmiScore = 100;
+        let hmiColor = "var(--status-safe)";
+        const verdict = (data.verdict && data.verdict.verdict) ? data.verdict.verdict.toUpperCase() : 'UNKNOWN';
+        if (verdict === 'CAUTION') { hmiScore = 50; hmiColor = "var(--status-caution)"; }
+        else if (verdict === 'NO-GO' || verdict === 'NOGO' || data.status === 'DISTRESS_DETECTED') { hmiScore = 5; hmiColor = "var(--status-nogo)"; }
+        
+        document.getElementById('hmi-val').textContent = hmiScore;
+        document.getElementById('hmi-val').style.color = hmiColor;
+        const hmiArc = document.getElementById('hmi-arc');
+        if (hmiArc) {
+            hmiArc.style.stroke = hmiColor;
+            hmiArc.style.strokeDasharray = `${hmiScore}, 100`;
+        }
+
+        const start = data.optimized_route[0];
+        const end = data.optimized_route[data.optimized_route.length - 1];
+        let straightLine = 0;
+        let totalDist = 0;
+        if (start && end) {
+            straightLine = map.distance([start.lat, start.lon], [end.lat, end.lon]);
+            for (let i = 0; i < data.optimized_route.length - 1; i++) {
+                const p1 = data.optimized_route[i];
+                const p2 = data.optimized_route[i+1];
+                totalDist += map.distance([p1.lat, p1.lon], [p2.lat, p2.lon]);
+            }
+        }
+        
+        let eff = 100;
+        if (totalDist > 0 && straightLine > 0) {
+            eff = Math.round((straightLine / totalDist) * 100);
+            if (eff > 100) eff = 100;
+        }
+        
+        let effColor = eff >= 90 ? "var(--status-safe)" : (eff >= 75 ? "var(--status-caution)" : "var(--status-nogo)");
+        document.getElementById('eff-val').textContent = eff + '%';
+        document.getElementById('eff-val').style.color = effColor;
+        const effArc = document.getElementById('eff-arc');
+        if (effArc) {
+            effArc.style.stroke = effColor;
+            effArc.style.strokeDasharray = `${eff}, 100`;
+        }
+    }
+
     function updateVerdictPanel(statusStr, reasonText) {
         verdictPanel.classList.remove('status-safe', 'status-caution', 'status-nogo', 'status-unknown', 'status-distress');
         
@@ -476,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        traceData.forEach(step => {
+        traceData.forEach((step, index) => {
             const li = document.createElement('li');
             li.className = `trace-item source-${step.source_type}`;
             
@@ -499,6 +570,10 @@ document.addEventListener('DOMContentLoaded', () => {
             li.appendChild(header);
             li.appendChild(summaryDiv);
             traceList.appendChild(li);
+            
+            setTimeout(() => {
+                li.classList.add('visible');
+            }, 100 + (index * 200));
         });
     }
 

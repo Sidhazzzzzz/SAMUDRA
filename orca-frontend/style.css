@@ -15,6 +15,12 @@
     --status-safe: #06D6A0;
     --status-caution: #FFD166;
     --status-nogo: #EF476F;
+
+    /* Unified Motion System */
+    --transition-fast: 150ms;
+    --transition-medium: 300ms;
+    --transition-slow: 500ms;
+    --ease-curve: cubic-bezier(0.4, 0.0, 0.2, 1);
     --status-unknown: #4A5568;
 
     --font-heading: 'Oswald', sans-serif;
@@ -410,7 +416,8 @@ body {
     display: inline-block;
 }
 
-. w e a t h e r - b l o b   {   f i l t e r :   b l u r ( 3 0 p x ) ;   }  
+. w e a t h e r - b l o b   {   f i l t e r :   b l u r ( 3 0 p x ) ;   } 
+ 
  
  . s t a t u s - d i s t r e s s   { 
          b a c k g r o u n d - c o l o r :   # D 9 0 4 2 9   ! i m p o r t a n t ;   / *   B r i g h t   e m e r g e n c y   r e d   * / 
@@ -432,7 +439,8 @@ body {
          0 %   {   b a c k g r o u n d - c o l o r :   # D 9 0 4 2 9 ;   } 
          1 0 0 %   {   b a c k g r o u n d - c o l o r :   # 9 A 0 3 1 E ;   } 
  } 
-  
+ 
+ 
  
 /* Persona Switcher */
 .persona-switcher {
@@ -571,4 +579,93 @@ body {
 .freshness-error {
     background-color: #F44336;
     color: #fff;
+}
+
+
+/* ========================================================
+   SECTION 1: Fallback Errors
+   ======================================================== */
+.layer-error {
+    color: var(--status-caution);
+    font-size: 0.85em;
+    margin-left: 6px;
+    animation: fadeIn var(--transition-medium) var(--ease-curve);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ========================================================
+   SECTION 3: Metrics Strip (Arc Gauges)
+   ======================================================== */
+.metrics-strip {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+    background-color: var(--bg-panel);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    animation: fadeIn var(--transition-medium) var(--ease-curve);
+}
+.metric-gauge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.circular-chart {
+    display: block;
+    margin: 0;
+    max-width: 40px;
+    max-height: 40px;
+}
+.circle-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 3.8;
+}
+.circle {
+    fill: none;
+    stroke-width: 3.8;
+    stroke-linecap: round;
+    transition: stroke-dasharray var(--transition-slow) var(--ease-curve), stroke var(--transition-medium) var(--ease-curve);
+}
+.metric-info {
+    display: flex;
+    flex-direction: column;
+}
+.metric-info .val {
+    font-weight: 700;
+    font-size: 1.1em;
+    font-family: 'Oswald', sans-serif;
+}
+.metric-info .lbl {
+    font-size: 0.7em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ========================================================
+   SECTION 4: Persona Transition
+   ======================================================== */
+.persona-switching {
+    opacity: 0;
+    transform: translateY(5px);
+}
+.sidebar-header h1, #chat-input::placeholder {
+    transition: opacity var(--transition-medium) var(--ease-curve), transform var(--transition-medium) var(--ease-curve);
+}
+
+/* ========================================================
+   SECTION 6: Trace Animation
+   ======================================================== */
+.trace-item {
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity var(--transition-medium) var(--ease-curve), transform var(--transition-medium) var(--ease-curve);
+}
+.trace-item.visible {
+    opacity: 1;
+    transform: translateX(0);
 }
