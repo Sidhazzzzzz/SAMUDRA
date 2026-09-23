@@ -667,99 +667,173 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function updateTracePanel(traceData) {
-        const dagNodesContainer = document.getElementById('dag-nodes');
-        const dagLineFill = document.getElementById('dag-line-fill');
-        if (!dagNodesContainer || !dagLineFill) return;
-        dagNodesContainer.innerHTML = '';
-        dagLineFill.style.width = '0%';
+        const container = document.querySelector('.dag-pipeline-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        container.style.position = 'relative';
+        container.style.display = 'flex';
+        container.style.justifyContent = 'space-between';
+        container.style.alignItems = 'stretch';
+        container.style.padding = '40px 20px';
+        container.style.minHeight = '350px';
         
         if (!traceData || traceData.length === 0) {
-            dagNodesContainer.innerHTML = '<div style="color:var(--text-muted);">No trace data available.</div>';
+            container.innerHTML = '<div style="color:var(--text-muted);">No trace data available.</div>';
             return;
         }
 
-        const totalNodes = traceData.length;
-        
-        // Find the max duration to scale animation times
-        let maxDuration = 10;
+        // 1. Group nodes into layers
+        const l0 = [], l1 = [], l2 = [], l3 = [];
         traceData.forEach(step => {
-            if (step.duration_ms > maxDuration) maxDuration = step.duration_ms;
+            const sl = step.stage.toLowerCase();
+            if (sl.includes('intent')) l0.push(step);
+            else if (sl.includes('verdict')) l2.push(step);
+            else if (sl.includes('narrat')) l3.push(step);
+            else l1.push(step);
         });
         
-        // Define animation base speed
-        const baseDelay = 400; 
-        let cumulativeDelay = 300;
-        
-        traceData.forEach((step, index) => {
-            const node = document.createElement('div');
+        const layers = [];
+        if (l0.length) layers.push(l0);
+        if (l1.length) layers.push(l1);
+        if (l2.length) layers.push(l2);
+        if (l3.length) layers.push(l3);
+
+        // 2. SVG Background for connections
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.style.position = 'absolute';
+        svg.style.top = '0';
+        svg.style.left = '0';
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.zIndex = '0';
+        svg.style.pointerEvents = 'none';
+        container.appendChild(svg);
+
+        // 3. Build Columns and Nodes
+        const cols = [];
+        layers.forEach((layerSteps, colIdx) => {
+            const col = document.createElement('div');
+            col.className = 'dag-col';
+            col.style.display = 'flex';
+            col.style.flexDirection = 'column';
+            col.style.justifyContent = 'center';
+            col.style.gap = '40px';
+            col.style.zIndex = '1';
             
-            let sourceClass = 'live';
-            const src = step.source_type || step.source || '';
-            const summ = step.summary || '';
-            if (src === 'error' || src === 'mock_error' || summ.includes('error') || summ.includes('failed') || summ.includes('No valid route')) {
-                sourceClass = 'error';
-            } else if (src === 'fallback' || src === 'mock_fallback') {
-                sourceClass = 'fallback';
-            } else if (step.duration_ms > (maxDuration * 0.8) && maxDuration > 1000) {
-                // Unusually long relative to others (amber)
-                sourceClass = 'fallback'; 
+            const nodeEls = [];
+            layerSteps.forEach(step => {
+                const node = document.createElement('div');
+                
+                let sourceClass = 'live';
+                const src = step.source_type || step.source || '';
+                const summ = step.summary || '';
+                if (src === 'error' || src === 'mock_error' || summ.includes('error') || summ.includes('failed') || summ.includes('No valid route')) {
+                    sourceClass = 'error';
+                } else if (src === 'fallback' || src === 'mock_fallback') {
+                    sourceClass = 'fallback';
+                }
+                // we drop the time-based amber here because parallel tools take different times
+                
+                node.className = `dag-node ${sourceClass}`;
+                node.style.position = 'relative'; // for connecting lines
+                
+                let icon = '⚙️';
+                const stageLower = step.stage.toLowerCase();
+                if (stageLower.includes('intent')) icon = '🧠';
+                else if (stageLower.includes('pfz') || stageLower.includes('weather') || stageLower.includes('route') || stageLower.includes('tool')) icon = '📡';
+                else if (stageLower.includes('verdict')) icon = '⚖️';
+                else if (stageLower.includes('narrat')) icon = '📝';
+                
+                node.innerHTML = `
+                    <div class="dag-node-circle" style="transform: scale(0); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">${icon}</div>
+                    <div class="dag-node-label" style="opacity:0; transition: opacity 0.3s;">${step.stage.replace('_agent', '').replace('_parser', '').replace('tool_execution: ', '')}</div>
+                    <div class="dag-node-time" style="opacity:0; transition: opacity 0.3s;">${step.duration_ms} ms</div>
+                    <div class="dag-node-summary" style="opacity:0; transition: opacity 0.3s; font-size: 0.6rem; max-width: 120px;">${step.summary}</div>
+                `;
+                
+                col.appendChild(node);
+                nodeEls.push({ step, el: node, sourceClass });
+            });
+            
+            container.appendChild(col);
+            cols.push(nodeEls);
+        });
+
+        // 4. Draw Lines & Animate
+        // Wait for next frame so flexbox layouts the nodes
+        requestAnimationFrame(() => {
+            const containerRect = container.getBoundingClientRect();
+            
+            // Draw paths
+            for (let i = 0; i < cols.length - 1; i++) {
+                const fromNodes = cols[i];
+                const toNodes = cols[i+1];
+                
+                fromNodes.forEach(fromObj => {
+                    const fromRect = fromObj.el.querySelector('.dag-node-circle').getBoundingClientRect();
+                    const startX = fromRect.right - containerRect.left;
+                    const startY = fromRect.top + fromRect.height/2 - containerRect.top;
+                    
+                    toNodes.forEach(toObj => {
+                        const toRect = toObj.el.querySelector('.dag-node-circle').getBoundingClientRect();
+                        const endX = toRect.left - containerRect.left;
+                        const endY = toRect.top + toRect.height/2 - containerRect.top;
+                        
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        const cp1x = startX + (endX - startX) / 2;
+                        const d = `M ${startX} ${startY} C ${cp1x} ${startY}, ${cp1x} ${endY}, ${endX} ${endY}`;
+                        
+                        path.setAttribute('d', d);
+                        path.setAttribute('fill', 'none');
+                        
+                        path.style.stroke = 'rgba(58,107,140, 0.4)';
+                        path.style.strokeWidth = '3';
+                        path.style.strokeDasharray = '10, 10';
+                        path.classList.add('flow-path');
+                        
+                        path.style.opacity = '0';
+                        path.style.transition = 'opacity 0.4s ease';
+                        
+                        svg.appendChild(path);
+                        
+                        if (!toObj.incomingPaths) toObj.incomingPaths = [];
+                        toObj.incomingPaths.push(path);
+                    });
+                });
             }
             
-            node.className = `dag-node ${sourceClass}`;
-            
-            // Icons based on stage
-            let icon = '⚙️';
-            const stageLower = step.stage.toLowerCase();
-            if (stageLower.includes('intent')) icon = '🧠';
-            else if (stageLower.includes('pfz') || stageLower.includes('weather') || stageLower.includes('route') || stageLower.includes('tool')) icon = '📡';
-            else if (stageLower.includes('verdict')) icon = '⚖️';
-            else if (stageLower.includes('narrat')) icon = '📝';
-            
-            node.innerHTML = `
-                <div class="dag-node-circle" style="transform: scale(0); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">${icon}</div>
-                <div class="dag-node-label" style="opacity:0; transition: opacity 0.3s;">${step.stage.replace('_agent', '').replace('_parser', '').replace('tool_execution: ', '')}</div>
-                <div class="dag-node-time" style="opacity:0; transition: opacity 0.3s;">${step.duration_ms} ms</div>
-                <div class="dag-node-summary" style="opacity:0; transition: opacity 0.3s;">${step.summary}</div>
-            `;
-            
-            dagNodesContainer.appendChild(node);
-            
-            // Calculate proportional delay based on this step's real duration (scaled)
-            let animTime = (step.duration_ms / maxDuration) * 1000;
-            if (animTime > 1500) animTime = 1500;
-            if (animTime < 200) animTime = 200;
-            
-            // Animate sequentially
-            setTimeout(() => {
-                node.classList.add('active');
-                
-                // Pop-in circle
-                const circle = node.querySelector('.dag-node-circle');
-                circle.style.transform = 'scale(1.1)';
-                
-                // Add glowing pulse to current node
-                circle.style.boxShadow = sourceClass === 'error' ? '0 0 25px rgba(216, 27, 96, 0.8)' : 
-                                         sourceClass === 'fallback' ? '0 0 25px rgba(255, 215, 0, 0.8)' : 
-                                         '0 0 25px rgba(58, 107, 140, 0.8)';
-                
-                // Show text
-                node.querySelectorAll('div').forEach(el => el.style.opacity = '1');
-                
+            // Animation sequence
+            let delay = 300;
+            cols.forEach((colNodes, colIndex) => {
                 setTimeout(() => {
-                    // Settle scale and glow
-                    circle.style.transform = 'scale(1)';
-                    circle.style.boxShadow = sourceClass === 'error' ? '0 0 10px rgba(216, 27, 96, 0.4)' : 
-                                         sourceClass === 'fallback' ? '0 0 10px rgba(255, 215, 0, 0.4)' : 
-                                         '0 0 10px rgba(58, 107, 140, 0.4)';
-                }, 400);
-
-                // Draw line fill smoothly to this node
-                const pct = totalNodes > 1 ? (index / (totalNodes - 1)) * 100 : 100;
-                dagLineFill.style.transition = `width ${animTime}ms linear`;
-                dagLineFill.style.width = `${pct}%`;
+                    colNodes.forEach(nodeObj => {
+                        // Reveal incoming paths
+                        if (nodeObj.incomingPaths) {
+                            nodeObj.incomingPaths.forEach(p => p.style.opacity = '1');
+                        }
+                        
+                        nodeObj.el.classList.add('active');
+                        const circle = nodeObj.el.querySelector('.dag-node-circle');
+                        circle.style.transform = 'scale(1.1)';
+                        
+                        circle.style.boxShadow = nodeObj.sourceClass === 'error' ? '0 0 25px rgba(216, 27, 96, 0.8)' : 
+                                                 nodeObj.sourceClass === 'fallback' ? '0 0 25px rgba(255, 215, 0, 0.8)' : 
+                                                 '0 0 25px rgba(58, 107, 140, 0.8)';
+                        
+                        nodeObj.el.querySelectorAll('div').forEach(el => el.style.opacity = '1');
+                        
+                        setTimeout(() => {
+                            circle.style.transform = 'scale(1)';
+                            circle.style.boxShadow = nodeObj.sourceClass === 'error' ? '0 0 10px rgba(216, 27, 96, 0.4)' : 
+                                                     nodeObj.sourceClass === 'fallback' ? '0 0 10px rgba(255, 215, 0, 0.4)' : 
+                                                     '0 0 10px rgba(58, 107, 140, 0.4)';
+                        }, 400);
+                    });
+                }, delay);
                 
-            }, cumulativeDelay);
-            
-            cumulativeDelay += animTime + 100;
+                // Add delay for next column
+                delay += 800; // Stagger tree levels
+            });
         });
     }

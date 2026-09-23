@@ -817,8 +817,8 @@ body {
     pointer-events: auto;
 }
 .dag-modal-content {
-    background: #FDFBF7;
-    color: #111111;
+    background: var(--bg-panel);
+    color: var(--text-main);
     width: 90%;
     max-width: 1000px;
     height: 80vh;
@@ -849,7 +849,7 @@ body {
 }
 .dag-modal-content h2 {
     font-family: var(--font-heading);
-    color: #111111;
+    color: var(--text-main);
     text-align: center;
     margin-top: 0;
     margin-bottom: 50px;
@@ -949,13 +949,13 @@ body {
 .dag-node-time {
     font-family: monospace;
     font-size: 0.7rem;
-    color: #555555;
+    color: var(--text-muted);
     margin-top: 5px;
     text-align: center;
 }
 .dag-node-summary {
     font-size: 0.65rem;
-    color: #555555;
+    color: var(--text-muted);
     text-align: center;
     margin-top: 5px;
     max-width: 120px;
@@ -1073,4 +1073,15 @@ body {
     animation: btnPulse 1.5s infinite;
     border-color: rgba(58, 107, 140, 0.8) !important;
     background: rgba(58, 107, 140, 0.15) !important;
+}
+
+@keyframes svgFlow {
+    from { stroke-dashoffset: 20; }
+    to { stroke-dashoffset: 0; }
+}
+.flow-path {
+    animation: svgFlow 0.5s linear infinite;
+}
+.dag-col {
+    position: relative;
 }
