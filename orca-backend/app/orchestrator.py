@@ -283,11 +283,12 @@ _NARRATION_SYSTEM = (
     "1. State the exact pre-computed verdict (SAFE, CAUTION, or NO-GO) prominently at the beginning.\n"
     "2. You are NOT permitted to decide or alter the safety verdict on your own.\n"
     "3. ONLY narrate the values present in the JSON — never invent, alter, "
-    "   or add any numeric or geospatial data not present in the input. Explicitly forbidden: mentioning fish species or confidence percentages (this data does not exist in the real source).\n"
-    "4. When describing PFZ advisories, ALWAYS use the bearing/distance/depth guidance from the named landing centre provided in the data.\n"
-    "5. Include real SST and Chlorophyll values when present ('sea surface temperature X°C, chlorophyll Y mg/m³ near [location]') without fabricating a value when the fetch returns null — in that case simply omit the SST/chlorophyll line.\n"
-    "6. Use simple language a non-technical mariner can understand.\n"
-    "7. Keep the response under 200 words.\n"
+    "   or add any numeric or geospatial data not present in the input. Explicitly forbidden: mentioning fish species or confidence percentages (this data does not exist in the real source).\n"\
+    "4. If mpa_caution is true, clearly mention the route intersects the provided MPA/Sector name, using only the provided name without inventing regulatory language.\n"
+    "5. When describing PFZ advisories, ALWAYS use the bearing/distance/depth guidance from the named landing centre provided in the data.\n"
+    "6. Include real SST and Chlorophyll values when present ('sea surface temperature X°C, chlorophyll Y mg/m³ near [location]') without fabricating a value when the fetch returns null — in that case simply omit the SST/chlorophyll line.\n"
+    "7. Use simple language a non-technical mariner can understand.\n"
+    "8. Keep the response under 200 words.\n"
 )
 
 
@@ -429,6 +430,7 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
 
         elif tool_name == "get_route_between":
             state.optimized_route = result.get("waypoints", [])
+            state.route_details = result
 
         elif tool_name == "plan_fishing_route":
             # Composite tool — unpack its sub-results
@@ -447,9 +449,11 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
             if result.get("storm") is not None:
                 state.weather_risks = [result["storm"]]
             state.optimized_route = result.get("route", {}).get("waypoints", [])
+            state.route_details = result.get("route", {})
 
         elif tool_name == "plan_commercial_route":
             state.optimized_route = result.get("waypoints", [])
+            state.route_details = result
             if not hasattr(state, '_extra_data'):
                 state._extra_data = {}
             state._extra_data["commercial_advisory"] = result
@@ -664,7 +668,7 @@ def handle_query(state: RouteRequestState) -> RouteRequestState:
         state.weather_risks = [weather_data]
 
     pfz_data = {"pfz_zones": state.pfz_targets} if state.pfz_targets else None
-    route_data = {"waypoints": state.optimized_route} if state.optimized_route else None
+    route_data = state.route_details
 
     t0_verdict = time.time()
     verdict_result = evaluate_verdict(

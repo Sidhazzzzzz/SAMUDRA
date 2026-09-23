@@ -25,6 +25,7 @@ class RouteRequestState(BaseModel):
     pfz_targets: list[dict] = []
     weather_risks: list[dict] = []
     optimized_route: list[dict] = []
+    route_details: dict = {}
     execution_trace: list[dict] = []
     verdict: dict | None = None
     status: str | None = None
