@@ -1085,3 +1085,14 @@ body {
 .dag-col {
     position: relative;
 }
+
+@keyframes readyPulse {
+    0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+}
+.ready-pulse {
+    animation: readyPulse 1.5s infinite;
+    border-color: rgba(46, 204, 113, 0.8) !important;
+    color: rgba(46, 204, 113, 1) !important;
+}

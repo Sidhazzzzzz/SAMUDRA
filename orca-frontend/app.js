@@ -340,7 +340,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update System Trace & Freshness
         if (data.execution_trace) {
             updateTracePanel(data.execution_trace);
-            
+            // Add ready pulse to trace button
+            const traceToggle = document.getElementById('trace-toggle');
+            if (traceToggle) {
+                traceToggle.classList.add('ready-pulse');
+            }            
             const freshnessInd = document.getElementById('freshness-indicator');
             if (freshnessInd) {
                 freshnessInd.classList.remove('hidden', 'freshness-live', 'freshness-fallback', 'freshness-error');
@@ -398,34 +402,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     blobColor = '#FFD700';
                 }
 
-                                // Draw transparent rectangle for popup interaction
+                                // Use a standard rectangle but apply a heavy CSS blur to create a soft, geographic heatmap blob
                 L.rectangle(rectBounds, {
-                    color: 'transparent',
-                    fillColor: 'transparent',
-                    fillOpacity: 0,
+                    color: 'transparent', // No border
+                    fillColor: blobColor,
+                    fillOpacity: 0.6,
                     weight: 0,
-                    pane: 'weatherPane' // ensure it sits on same pane for interaction
-                }).addTo(weatherGroup).bindPopup(`<b>Weather Bounds</b><br>Active Storm: ${weather.active}<br>Wave Height: ${weather.wave_height_m}m`);
-                
-                // Add center point to our heat points array for this storm
-                const centerLat = (minLat + maxLat) / 2;
-                const centerLon = (minLon + maxLon) / 2;
-                
-                // Create gradient for this specific blobColor
-                const gradientObj = {
-                    0.2: 'transparent',
-                    0.6: blobColor === '#D81B60' ? 'rgba(216,27,96,0.6)' : 'rgba(255,215,0,0.6)',
-                    1.0: blobColor
-                };
-                
-                L.heatLayer([
-                    [centerLat, centerLon, 1.0]
-                ], {
-                    radius: 90,
-                    blur: 60,
-                    gradient: gradientObj,
+                    className: 'weather-blob',
                     pane: 'weatherPane'
-                }).addTo(weatherGroup);
+                }).addTo(weatherGroup).bindPopup(`<b>Weather Bounds</b><br>Active Storm: ${weather.active}<br>Wave Height: ${weather.wave_height_m}m`);
                 boundsList.push(L.rectangle(rectBounds).getBounds());
             });
         }
@@ -648,6 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dagCloseBtn = document.getElementById('dag-close-btn');
     
     traceToggle.addEventListener('click', () => {
+        traceToggle.classList.remove('ready-pulse');
         dagModal.classList.remove('hidden');
         // trigger reflow
         void dagModal.offsetWidth;
