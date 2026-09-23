@@ -669,3 +669,44 @@ body {
     opacity: 1;
     transform: translateX(0);
 }
+
+/* ========================================================
+   SECTION 7: Unified Interactive Motion System
+   ======================================================== */
+button,
+.persona-btn,
+#send-btn,
+#export-btn,
+.toggle-label,
+.trace-header,
+#chat-input {
+    transition: transform var(--transition-fast) var(--ease-curve), 
+                filter var(--transition-fast) var(--ease-curve), 
+                box-shadow var(--transition-fast) var(--ease-curve), 
+                background-color var(--transition-fast) var(--ease-curve), 
+                border-color var(--transition-fast) var(--ease-curve), 
+                color var(--transition-fast) var(--ease-curve) !important;
+    will-change: transform, filter;
+}
+
+button:hover,
+.persona-btn:hover,
+#send-btn:hover,
+#export-btn:hover,
+.toggle-label:hover,
+.trace-header:hover,
+#chat-input:hover,
+#chat-input:focus {
+    transform: translateY(-2px);
+    filter: brightness(1.15);
+}
+
+button:active,
+.persona-btn:active,
+#send-btn:active,
+#export-btn:active,
+.toggle-label:active,
+.trace-header:active {
+    transform: translateY(1px);
+    filter: brightness(0.9);
+}
