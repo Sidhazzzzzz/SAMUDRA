@@ -1063,3 +1063,14 @@ body {
     font-size: 0.8rem;
     padding: 8px 16px;
 }
+
+@keyframes btnPulse {
+    0% { box-shadow: 0 0 0 0 rgba(58, 107, 140, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(58, 107, 140, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(58, 107, 140, 0); }
+}
+.processing-pulse {
+    animation: btnPulse 1.5s infinite;
+    border-color: rgba(58, 107, 140, 0.8) !important;
+    background: rgba(58, 107, 140, 0.15) !important;
+}

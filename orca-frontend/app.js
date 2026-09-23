@@ -327,10 +327,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         exportBtn.classList.remove('hidden');
         
-        // Find the last message (which is the one we just added) and append the button
-        const lastMsg = chatHistory.lastElementChild;
-        if (lastMsg) {
-            lastMsg.appendChild(exportBtn);
+        // Pin the export button to the status card so it's always visible without scrolling
+        const statusCard = document.querySelector('.sidebar-status-card');
+        if (statusCard && !document.getElementById('export-btn')) {
+            // Only append once
+            statusCard.appendChild(exportBtn);
+        } else if (statusCard) {
+            statusCard.appendChild(exportBtn);
         }
 
 
@@ -395,16 +398,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     blobColor = '#FFD700';
                 }
 
-                // Use a standard rectangle but apply a heavy CSS blur to create a soft, geographic heatmap blob
+                                // Draw transparent rectangle for popup interaction
                 L.rectangle(rectBounds, {
-                    color: 'transparent', // No border
-                    fillColor: blobColor,
-                    fillOpacity: 0.6,
+                    color: 'transparent',
+                    fillColor: 'transparent',
+                    fillOpacity: 0,
                     weight: 0,
-                    className: 'weather-blob',
-                    pane: 'weatherPane'
+                    pane: 'weatherPane' // ensure it sits on same pane for interaction
                 }).addTo(weatherGroup).bindPopup(`<b>Weather Bounds</b><br>Active Storm: ${weather.active}<br>Wave Height: ${weather.wave_height_m}m`);
                 
+                // Add center point to our heat points array for this storm
+                const centerLat = (minLat + maxLat) / 2;
+                const centerLon = (minLon + maxLon) / 2;
+                
+                // Create gradient for this specific blobColor
+                const gradientObj = {
+                    0.2: 'transparent',
+                    0.6: blobColor === '#D81B60' ? 'rgba(216,27,96,0.6)' : 'rgba(255,215,0,0.6)',
+                    1.0: blobColor
+                };
+                
+                L.heatLayer([
+                    [centerLat, centerLon, 1.0]
+                ], {
+                    radius: 90,
+                    blur: 60,
+                    gradient: gradientObj,
+                    pane: 'weatherPane'
+                }).addTo(weatherGroup);
                 boundsList.push(L.rectangle(rectBounds).getBounds());
             });
         }
