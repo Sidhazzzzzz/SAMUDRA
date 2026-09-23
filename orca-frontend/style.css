@@ -687,7 +687,7 @@ body {
     background-color: #1C2541;
 }
 #chat-input:focus {
-    background-color: #FFFFFF;
+    background-color: #0B101E;
     border-color: #8AB4F8;
     box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
 }
@@ -974,23 +974,26 @@ body {
 }
 .sidebar-top {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
     background: transparent;
     padding: 0;
     border-bottom: none;
+    margin-bottom: 10px;
 }
 .sidebar-header {
     padding: 0;
     background: transparent;
     border-bottom: none;
+    margin-bottom: 10px;
 }
 .sidebar-header h1 {
     margin: 0;
 }
 .persona-switcher {
     margin: 0;
-    width: 200px; /* compact */
+    width: 100%;
 }
 .sidebar-status-card {
     background-color: var(--bg-panel);
