@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "SECTORNAME": "Gulf of Mannar Marine National Park"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [79.25, 9.22],
+            [79.20, 9.15],
+            [78.80, 8.95],
+            [78.15, 8.75],
+            [78.25, 8.65],
+            [78.90, 8.85],
+            [79.35, 9.15],
+            [79.25, 9.22]
+          ]
+        ]
+      }
+    }
+  ]
+}

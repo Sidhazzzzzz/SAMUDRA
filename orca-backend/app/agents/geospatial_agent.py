@@ -53,20 +53,17 @@ def load_mpa_data():
     global _MPA_FEATURES, _MPA_LOADED
     if _MPA_LOADED: return
     
-    url = 'https://incois.gov.in/geoserver/PFZ_Sectors/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json'
+    import os, json
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read())
-            _MPA_FEATURES = data.get('features', [])
-    except Exception as e:
-        logger.error(f"Failed to fetch MPA/Sectors: {e}")
         base_dir = os.path.dirname(__file__)
-        fallback_path = os.path.join(base_dir, 'mpa_sectors.json')
-        if os.path.exists(fallback_path):
-            with open(fallback_path, 'r') as f:
+        mpa_path = os.path.join(base_dir, 'real_mpa_polygons.json')
+        if os.path.exists(mpa_path):
+            with open(mpa_path, 'r') as f:
                 data = json.load(f)
                 _MPA_FEATURES = data.get('features', [])
+                logger.info(f"Loaded {len(_MPA_FEATURES)} real MPA polygons from WDPA/local source.")
+    except Exception as e:
+        logger.error(f"Failed to load real MPA polygons: {e}")
     _MPA_LOADED = True
 
 def check_mpa_violations(waypoints: list[dict]) -> dict:
