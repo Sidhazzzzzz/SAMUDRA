@@ -864,57 +864,62 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPolygon = null;
 
     function initAuthorityMode() {
-        // 1. Draw Fleet
-        if (!fleetGroup) {
-            fleetGroup = L.featureGroup().addTo(map);
-            simulatedFleet.forEach(v => {
-                const icon = L.divIcon({
-                    className: 'vessel-icon',
-                    html: '🚢',
-                    iconSize: [24, 24]
+        try {
+            // 1. Draw Fleet
+            if (!fleetGroup) {
+                fleetGroup = L.featureGroup().addTo(map);
+                simulatedFleet.forEach(v => {
+                    const icon = L.divIcon({
+                        className: 'vessel-icon',
+                        html: 'VSL',
+                        iconSize: [24, 24]
+                    });
+                    const marker = L.marker([v.lat, v.lon], {icon}).addTo(fleetGroup);
+                    marker.bindPopup(`<b>${v.id}</b><br>Type: ${v.type}`);
+                    marker.vesselId = v.id;
                 });
-                const marker = L.marker([v.lat, v.lon], {icon}).addTo(fleetGroup);
-                marker.bindPopup(`<b>${v.id}</b><br>Type: ${v.type}`);
-                marker.vesselId = v.id;
-            });
-        }
-        if (!map.hasLayer(fleetGroup)) map.addLayer(fleetGroup);
+            }
+            if (!map.hasLayer(fleetGroup)) map.addLayer(fleetGroup);
 
-        // 2. Add Draw Control
-        if (!authDrawnItems) {
-            authDrawnItems = new L.FeatureGroup();
-            map.addLayer(authDrawnItems);
-            
-            authDrawControl = new L.Control.Draw({
-                position: 'topright',
-                draw: {
-                    polygon: { shapeOptions: { color: '#D81B60', weight: 3 } },
-                    polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
-                },
-                edit: { featureGroup: authDrawnItems }
-            });
-            
-            map.on(L.Draw.Event.CREATED, function (e) {
-                authDrawnItems.clearLayers();
-                const layer = e.layer;
-                authDrawnItems.addLayer(layer);
+            // 2. Add Draw Control
+            if (!authDrawnItems) {
+                authDrawnItems = new L.FeatureGroup();
+                map.addLayer(authDrawnItems);
                 
-                // Extract coordinates
-                const latlngs = layer.getLatLngs()[0];
-                currentPolygon = latlngs.map(ll => [ll.lat, ll.lng]);
+                authDrawControl = new L.Control.Draw({
+                    position: 'topright',
+                    draw: {
+                        polygon: { shapeOptions: { color: '#D81B60', weight: 3 } },
+                        polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
+                    },
+                    edit: { featureGroup: authDrawnItems }
+                });
                 
-                // Show broadcast form
-                document.getElementById('broadcast-form-container').classList.remove('hidden');
-                document.getElementById('broadcast-result-container').classList.add('hidden');
-                resetVesselHighlights();
-            });
-        }
-        map.addControl(authDrawControl);
+                map.on(L.Draw.Event.CREATED, function (e) {
+                    authDrawnItems.clearLayers();
+                    const layer = e.layer;
+                    authDrawnItems.addLayer(layer);
+                    
+                    // Extract coordinates
+                    const latlngs = layer.getLatLngs()[0];
+                    currentPolygon = latlngs.map(ll => [ll.lat, ll.lng]);
+                    
+                    // Show broadcast form
+                    document.getElementById('broadcast-form-container').classList.remove('hidden');
+                    document.getElementById('broadcast-result-container').classList.add('hidden');
+                    resetVesselHighlights();
+                });
+            }
+            map.addControl(authDrawControl);
 
-        // 3. Fetch Rankings
-        fetchRankings();
+            // 3. Fetch Rankings
+            fetchRankings();
+        } catch (err) {
+            alert("Error in initAuthorityMode: " + err.message);
+            console.error(err);
+        }
     }
-
+    
     function exitAuthorityMode() {
         if (fleetGroup && map.hasLayer(fleetGroup)) {
             map.removeLayer(fleetGroup);
@@ -942,6 +947,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchRankings() {
         try {
             const res = await fetch('http://127.0.0.1:8000/coastal-authority/block-rankings');
+            if (!res.ok) {
+                alert("Fetch failed with status: " + res.status);
+                return;
+            }
             const data = await res.json();
             if (data.status === 'success') {
                 const tbody = document.querySelector('#ranking-table tbody');
@@ -963,8 +972,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     tbody.appendChild(tr);
                 });
+            } else {
+                alert("API returned error status: " + JSON.stringify(data));
             }
         } catch (e) {
+            alert('Error fetching rankings: ' + e.message);
             console.error('Error fetching rankings', e);
         }
     }
