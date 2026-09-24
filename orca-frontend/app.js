@@ -235,12 +235,25 @@ document.addEventListener('DOMContentLoaded', () => {
             chatInput.classList.add('persona-switching');
             
             setTimeout(() => {
-                if (currentMode === "commercial") {
-                    title.textContent = "COMMERCIAL NAVIGATOR";
-                    chatInput.placeholder = "e.g., plan a commercial route from Rameswaram to Mandapam...";
+                const chatModeView = document.getElementById('chat-mode-view');
+                const authModeView = document.getElementById('authority-mode-view');
+
+                if (currentMode === "authority") {
+                    title.textContent = "COASTAL AUTHORITY";
+                    chatModeView.classList.add('hidden');
+                    authModeView.classList.remove('hidden');
+                    initAuthorityMode();
                 } else {
-                    title.textContent = "FISHERMAN PORTAL";
-                    chatInput.placeholder = "Enter coordinates, mission, or ask for a route...";
+                    if (currentMode === "commercial") {
+                        title.textContent = "COMMERCIAL NAVIGATOR";
+                        chatInput.placeholder = "e.g., plan a commercial route from Rameswaram to Mandapam...";
+                    } else {
+                        title.textContent = "FISHERMAN PORTAL";
+                        chatInput.placeholder = "Enter coordinates, mission, or ask for a route...";
+                    }
+                    chatModeView.classList.remove('hidden');
+                    authModeView.classList.add('hidden');
+                    exitAuthorityMode();
                 }
                 headerTitle.classList.remove('persona-switching');
                 chatInput.classList.remove('persona-switching');
@@ -821,5 +834,184 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Add delay for next column
                 delay += 800; // Stagger tree levels
             });
+        
+    // =========================================================================
+    // COASTAL AUTHORITY MODE LOGIC
+    // =========================================================================
+    const simulatedFleet = [
+        {"id": "V-101", "lat": 9.25, "lon": 79.15, "type": "Fishing"},
+        {"id": "V-102", "lat": 9.30, "lon": 79.20, "type": "Commercial"},
+        {"id": "V-103", "lat": 9.15, "lon": 79.10, "type": "Fishing"},
+        {"id": "V-104", "lat": 9.40, "lon": 79.35, "type": "Fishing"},
+        {"id": "V-105", "lat": 9.10, "lon": 79.60, "type": "Cargo"},
+        {"id": "V-106", "lat": 9.45, "lon": 79.70, "type": "Fishing"},
+        {"id": "V-107", "lat": 9.35, "lon": 79.40, "type": "Passenger"},
+        {"id": "V-108", "lat": 9.20, "lon": 79.50, "type": "Fishing"},
+        {"id": "V-109", "lat": 9.32, "lon": 79.55, "type": "Fishing"},
+        {"id": "V-110", "lat": 9.12, "lon": 79.25, "type": "Commercial"},
+        {"id": "V-111", "lat": 9.28, "lon": 79.31, "type": "Fishing"},
+        {"id": "V-112", "lat": 9.27, "lon": 79.12, "type": "Fishing"},
+    ];
+
+    let fleetGroup = null;
+    let authDrawnItems = null;
+    let authDrawControl = null;
+    let currentPolygon = null;
+
+    function initAuthorityMode() {
+        // 1. Draw Fleet
+        if (!fleetGroup) {
+            fleetGroup = L.featureGroup().addTo(map);
+            simulatedFleet.forEach(v => {
+                const icon = L.divIcon({
+                    className: 'vessel-icon',
+                    html: '🚢',
+                    iconSize: [24, 24]
+                });
+                const marker = L.marker([v.lat, v.lon], {icon}).addTo(fleetGroup);
+                marker.bindPopup(`<b>${v.id}</b><br>Type: ${v.type}`);
+                marker.vesselId = v.id;
+            });
+        }
+        if (!map.hasLayer(fleetGroup)) map.addLayer(fleetGroup);
+
+        // 2. Add Draw Control
+        if (!authDrawnItems) {
+            authDrawnItems = new L.FeatureGroup();
+            map.addLayer(authDrawnItems);
+            
+            authDrawControl = new L.Control.Draw({
+                draw: {
+                    polygon: { shapeOptions: { color: '#D81B60', weight: 3 } },
+                    polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
+                },
+                edit: { featureGroup: authDrawnItems }
+            });
+            
+            map.on(L.Draw.Event.CREATED, function (e) {
+                authDrawnItems.clearLayers();
+                const layer = e.layer;
+                authDrawnItems.addLayer(layer);
+                
+                // Extract coordinates
+                const latlngs = layer.getLatLngs()[0];
+                currentPolygon = latlngs.map(ll => [ll.lat, ll.lng]);
+                
+                // Show broadcast form
+                document.getElementById('broadcast-form-container').classList.remove('hidden');
+                document.getElementById('broadcast-result-container').classList.add('hidden');
+                resetVesselHighlights();
+            });
+        }
+        map.addControl(authDrawControl);
+
+        // 3. Fetch Rankings
+        fetchRankings();
+    }
+
+    function exitAuthorityMode() {
+        if (fleetGroup && map.hasLayer(fleetGroup)) {
+            map.removeLayer(fleetGroup);
+        }
+        if (authDrawControl) {
+            map.removeControl(authDrawControl);
+        }
+        if (authDrawnItems) {
+            authDrawnItems.clearLayers();
+        }
+        document.getElementById('broadcast-form-container').classList.add('hidden');
+        document.getElementById('broadcast-result-container').classList.add('hidden');
+        resetVesselHighlights();
+    }
+
+    function resetVesselHighlights() {
+        if (!fleetGroup) return;
+        fleetGroup.eachLayer(layer => {
+            if (layer.getElement()) {
+                layer.getElement().classList.remove('highlighted');
+            }
         });
+    }
+
+    async function fetchRankings() {
+        try {
+            const res = await fetch('http://localhost:8000/coastal-authority/block-rankings');
+            const data = await res.json();
+            if (data.status === 'success') {
+                const tbody = document.querySelector('#ranking-table tbody');
+                tbody.innerHTML = '';
+                data.rankings.forEach(block => {
+                    const tr = document.createElement('tr');
+                    
+                    let tierClass = 'tier-safe';
+                    if (block.action_tier === 'NO-GO') tierClass = 'tier-no-go';
+                    else if (block.action_tier === 'CAUTION') tierClass = 'tier-caution';
+                    
+                    tr.innerHTML = `
+                        <td>${block.block_name}</td>
+                        <td>${block.hmi_score}</td>
+                        <td class="${tierClass}">${block.action_tier}</td>
+                    `;
+                    tr.addEventListener('click', () => {
+                        map.flyTo([block.lat, block.lon], 12);
+                    });
+                    tbody.appendChild(tr);
+                });
+            }
+        } catch (e) {
+            console.error('Error fetching rankings', e);
+        }
+    }
+
+    document.getElementById('broadcast-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentPolygon) return;
+        
+        const eventType = document.getElementById('bc-event-type').value;
+        const severity = document.getElementById('bc-severity').value;
+        
+        try {
+            const res = await fetch('http://localhost:8000/coastal-authority/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    polygon_coordinates: currentPolygon,
+                    event_type: eventType,
+                    severity: severity
+                })
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                // Highlight vessels
+                resetVesselHighlights();
+                if (fleetGroup) {
+                    fleetGroup.eachLayer(layer => {
+                        if (data.affected_vessels.includes(layer.vesselId) && layer.getElement()) {
+                            layer.getElement().classList.add('highlighted');
+                        }
+                    });
+                }
+                
+                // Show result
+                document.getElementById('broadcast-result-container').classList.remove('hidden');
+                document.getElementById('affected-count').textContent = `Alert dispatched to ${data.affected_vessels.length} vessel(s).`;
+                document.getElementById('cap-xml-display').textContent = data.cap_xml;
+                document.getElementById('cap-xml-display').classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('Broadcast failed', e);
+        }
+    });
+
+    document.getElementById('toggle-xml-btn').addEventListener('click', () => {
+        const pre = document.getElementById('cap-xml-display');
+        if (pre.classList.contains('hidden')) {
+            pre.classList.remove('hidden');
+        } else {
+            pre.classList.add('hidden');
+        }
+    });
+
+});
     }
