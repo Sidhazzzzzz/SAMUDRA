@@ -571,10 +571,7 @@ body {
 /* ========================================================
    SECTION 4: Persona Transition
    ======================================================== */
-.persona-switching {
-    opacity: 0;
-    transform: translateY(5px);
-}
+
 .sidebar-header h1, #chat-input::placeholder {
     transition: opacity var(--transition-medium) var(--ease-curve), transform var(--transition-medium) var(--ease-curve);
 }
@@ -982,15 +979,7 @@ body {
     border-bottom: none;
     margin-bottom: 10px;
 }
-.sidebar-header {
-    padding: 0;
-    background: transparent;
-    border-bottom: none;
-    margin-bottom: 10px;
-}
-.sidebar-header h1 {
-    margin: 0;
-}
+
 .persona-switcher {
     margin: 0;
     width: 100%;
@@ -1218,4 +1207,36 @@ body {
 #chat-input:focus {
     transform: scale(1.02);
     box-shadow: 0 0 15px rgba(138, 180, 248, 0.3);
+}
+
+
+/* Prevent essential layout elements from collapsing */
+.sidebar-top, .sidebar-header, .persona-switcher {
+    flex-shrink: 0;
+}
+.chat-input-area {
+    flex-shrink: 0;
+}
+#chat-form {
+    flex-shrink: 0;
+    align-items: stretch;
+}
+#chat-input {
+    min-height: 40px;
+    flex-shrink: 1;
+    width: 100%;
+}
+#chat-mode-view, #authority-mode-view {
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+.sidebar-header h1 {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+#chat-input, #chat-input::placeholder {
+    opacity: 1 !important;
+    visibility: visible !important;
 }

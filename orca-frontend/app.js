@@ -232,31 +232,36 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = document.getElementById('persona-title');
             const headerTitle = document.querySelector('.sidebar-header h1');
             headerTitle.classList.add('persona-switching');
-            chatInput.classList.add('persona-switching');
+            // chatInput.classList.add('persona-switching');
             
             setTimeout(() => {
-                const chatModeView = document.getElementById('chat-mode-view');
-                const authModeView = document.getElementById('authority-mode-view');
+                try {
+                    const chatModeView = document.getElementById('chat-mode-view');
+                    const authModeView = document.getElementById('authority-mode-view');
 
-                if (currentMode === "authority") {
-                    title.textContent = "COASTAL AUTHORITY";
-                    chatModeView.classList.add('hidden');
-                    authModeView.classList.remove('hidden');
-                    initAuthorityMode();
-                } else {
-                    if (currentMode === "commercial") {
-                        title.textContent = "COMMERCIAL NAVIGATOR";
-                        chatInput.placeholder = "e.g., plan a commercial route from Rameswaram to Mandapam...";
+                    if (currentMode === "authority") {
+                        title.textContent = "COASTAL AUTHORITY";
+                        if (chatModeView) chatModeView.classList.add('hidden');
+                        if (authModeView) authModeView.classList.remove('hidden');
+                        initAuthorityMode();
                     } else {
-                        title.textContent = "FISHERMAN PORTAL";
-                        chatInput.placeholder = "Enter coordinates, mission, or ask for a route...";
+                        if (currentMode === "commercial") {
+                            title.textContent = "COMMERCIAL NAVIGATOR";
+                            if (chatInput) chatInput.placeholder = "e.g., plan a commercial route from Rameswaram to Mandapam...";
+                        } else {
+                            title.textContent = "FISHERMAN PORTAL";
+                            if (chatInput) chatInput.placeholder = "Enter coordinates, mission, or ask for a route...";
+                        }
+                        if (chatModeView) chatModeView.classList.remove('hidden');
+                        if (authModeView) authModeView.classList.add('hidden');
+                        exitAuthorityMode();
                     }
-                    chatModeView.classList.remove('hidden');
-                    authModeView.classList.add('hidden');
-                    exitAuthorityMode();
+                } catch(e) {
+                    console.error('Error during persona switch:', e);
+                } finally {
+                    if (headerTitle) headerTitle.classList.remove('persona-switching');
+                    if (chatInput) chatInput.classList.remove('persona-switching');
                 }
-                headerTitle.classList.remove('persona-switching');
-                chatInput.classList.remove('persona-switching');
             }, 300);
         });
     });
