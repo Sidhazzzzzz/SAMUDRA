@@ -1146,3 +1146,76 @@ body {
     70% { box-shadow: 0 0 0 10px rgba(216, 27, 96, 0); }
     100% { box-shadow: 0 0 0 0 rgba(216, 27, 96, 0); }
 }
+
+/* Enhance Button Micro-interactions */
+.btn {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+}
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.btn:active {
+    transform: translateY(1px);
+}
+.primary-btn {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(58, 107, 140, 0.5);
+    background-color: #4A83A8; /* slightly lighter marine */
+}
+
+/* Add subtle entrance animations to sidebar elements */
+.sidebar-header, .persona-switcher, .sidebar-status-card, .chat-input-area, .metrics-strip {
+    animation: fadeSlideIn 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    opacity: 0;
+    transform: translateY(15px);
+}
+.sidebar-header { animation-delay: 0.1s; }
+.persona-switcher { animation-delay: 0.2s; }
+.sidebar-status-card { animation-delay: 0.3s; }
+.metrics-strip { animation-delay: 0.4s; }
+.chat-input-area { animation-delay: 0.5s; }
+
+@keyframes fadeSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Map layers panel interactions */
+.map-layers-panel {
+    animation: slideRight 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    opacity: 0;
+    transform: translateX(-20px);
+}
+
+@keyframes slideRight {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.layer-item {
+    transition: background-color 0.2s ease, padding-left 0.2s ease;
+}
+.layer-item:hover {
+    background-color: rgba(255,255,255,0.05);
+    padding-left: 5px;
+    border-radius: 4px;
+}
+
+/* Focus state animation on input */
+#chat-input {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+#chat-input:focus {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px rgba(138, 180, 248, 0.3);
+}

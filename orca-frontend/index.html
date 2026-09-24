@@ -59,6 +59,7 @@
                 </div>
             </div>
 
+            <div id="chat-mode-view" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
             <div class="sidebar-status-card" id="verdict-panel">
                 <div class="status-row">
                     <div class="status-label">SYSTEM STATUS</div>
@@ -115,6 +116,73 @@
                 </form>
             </div>
 
+
+            </div> <!-- End chat-mode-view -->
+
+            <div id="authority-mode-view" class="hidden" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                <div class="sidebar-status-card" style="border-left: 3px solid #D81B60;">
+                    <div class="status-row">
+                        <div class="status-label" style="color: #D81B60; font-weight: 700;">SIMULATED BROADCAST</div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
+                        DEMONSTRATION ONLY. NO REAL DISPATCH.
+                    </div>
+                </div>
+
+                <div id="auth-controls" style="padding: 15px; overflow-y: auto; flex: 1;">
+                    <h3 style="font-size: 0.85rem; margin-bottom: 10px; color: var(--text-muted);">COASTAL BLOCK RANKINGS</h3>
+                    <div id="ranking-table-container">
+                        <table class="ranking-table" id="ranking-table">
+                            <thead>
+                                <tr>
+                                    <th>BLOCK</th>
+                                    <th>HMI</th>
+                                    <th>ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Loading rankings...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="broadcast-form-container" class="hidden" style="margin-top: 20px; background: var(--bg-navy); padding: 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="font-size: 0.85rem; margin-bottom: 10px; color: var(--accent-marine);">DRAWN ZONE ACTION</h3>
+                        <form id="broadcast-form">
+                            <label style="display:block; font-size: 0.75rem; margin-bottom: 5px;">Event Type</label>
+                            <select id="bc-event-type" style="width: 100%; margin-bottom: 15px; padding: 5px; background: var(--bg-panel); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                                <option value="Tsunami Warning">Tsunami Warning</option>
+                                <option value="High Wave Alert">High Wave Alert</option>
+                                <option value="Cyclone Warning">Cyclone Warning</option>
+                            </select>
+
+                            <label style="display:block; font-size: 0.75rem; margin-bottom: 5px;">Severity (CAP 1.2)</label>
+                            <select id="bc-severity" style="width: 100%; margin-bottom: 15px; padding: 5px; background: var(--bg-panel); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                                <option value="Extreme">Extreme</option>
+                                <option value="Severe">Severe</option>
+                                <option value="Moderate">Moderate</option>
+                                <option value="Minor">Minor</option>
+                            </select>
+
+                            <button type="submit" class="btn btn-primary" style="width: 100%; background: #D81B60; border-color: #D81B60;">
+                                BROADCAST ALERT
+                            </button>
+                        </form>
+                    </div>
+
+                    <div id="broadcast-result-container" class="hidden" style="margin-top: 20px;">
+                        <div class="sidebar-status-card">
+                            <div class="status-row">
+                                <div class="status-label" style="color: #4CAF50;">BROADCAST SUCCESS</div>
+                            </div>
+                            <div id="affected-count" style="font-size: 0.85rem; margin-top: 5px;"></div>
+                            <button type="button" id="toggle-xml-btn" class="btn btn-outline" style="width: 100%; margin-top: 10px; font-size: 0.75rem;">
+                                VIEW CAP 1.2 XML
+                            </button>
+                            <pre id="cap-xml-display" class="hidden" style="margin-top: 10px; background: #111; padding: 10px; font-size: 0.7rem; overflow-x: auto; color: #0f0; border-radius: 4px; max-height: 200px; overflow-y: auto;"></pre>
+                        </div>
+                    </div>
+                </div>
         </aside>
     </div>
 
