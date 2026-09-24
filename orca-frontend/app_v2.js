@@ -840,6 +840,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 delay += 800; // Stagger tree levels
             });
         
+        });
+    }
+
     // =========================================================================
     // COASTAL AUTHORITY MODE LOGIC
     // =========================================================================
@@ -1031,5 +1034,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-});
-    }
