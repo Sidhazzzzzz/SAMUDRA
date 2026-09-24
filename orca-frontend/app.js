@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoading(true);
 
         try {
-            const response = await fetch('http://localhost:8000/query', {
+            const response = await fetch('http://127.0.0.1:8000/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_query: query, mode: currentMode })
@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 exportBtn.textContent = 'Generating PDF...';
                 exportBtn.disabled = true;
                 try {
-                    const response = await fetch('http://localhost:8000/export-pdf', {
+                    const response = await fetch('http://127.0.0.1:8000/export-pdf', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(window.lastState)
@@ -886,6 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
             map.addLayer(authDrawnItems);
             
             authDrawControl = new L.Control.Draw({
+                position: 'topright',
                 draw: {
                     polygon: { shapeOptions: { color: '#D81B60', weight: 3 } },
                     polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
@@ -940,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchRankings() {
         try {
-            const res = await fetch('http://localhost:8000/coastal-authority/block-rankings');
+            const res = await fetch('http://127.0.0.1:8000/coastal-authority/block-rankings');
             const data = await res.json();
             if (data.status === 'success') {
                 const tbody = document.querySelector('#ranking-table tbody');
@@ -976,7 +977,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const severity = document.getElementById('bc-severity').value;
         
         try {
-            const res = await fetch('http://localhost:8000/coastal-authority/broadcast', {
+            const res = await fetch('http://127.0.0.1:8000/coastal-authority/broadcast', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
