@@ -868,26 +868,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initAuthorityMode() {
         try {
-            // 1. Draw Fleet
             if (!fleetGroup) {
                 fleetGroup = L.featureGroup().addTo(map);
                 simulatedFleet.forEach(v => {
-                    const icon = L.divIcon({
-                        className: 'vessel-icon',
-                        html: 'VSL',
-                        iconSize: [24, 24]
-                    });
+                    const icon = L.divIcon({ className: 'vessel-icon', html: 'VSL', iconSize: [24, 24] });
                     const marker = L.marker([v.lat, v.lon], {icon}).addTo(fleetGroup);
                     marker.bindPopup(`<b>${v.id}</b><br>Type: ${v.type}`);
                     marker.vesselId = v.id;
                 });
+            } else if (!map.hasLayer(fleetGroup)) {
+                map.addLayer(fleetGroup);
             }
-            if (!map.hasLayer(fleetGroup)) map.addLayer(fleetGroup);
 
-            // 2. Add Draw Control
             if (!authDrawnItems) {
-                authDrawnItems = new L.FeatureGroup();
-                map.addLayer(authDrawnItems);
+                authDrawnItems = L.featureGroup().addTo(map);
                 
                 authDrawControl = new L.Control.Draw({
                     position: 'topright',
@@ -895,7 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         polygon: { shapeOptions: { color: '#D81B60', weight: 3 } },
                         polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
                     },
-                    edit: { featureGroup: authDrawnItems }
+                    edit: false
                 });
                 
                 map.on(L.Draw.Event.CREATED, function (e) {
@@ -903,19 +897,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const layer = e.layer;
                     authDrawnItems.addLayer(layer);
                     
-                    // Extract coordinates
                     const latlngs = layer.getLatLngs()[0];
                     currentPolygon = latlngs.map(ll => [ll.lat, ll.lng]);
                     
-                    // Show broadcast form
                     document.getElementById('broadcast-form-container').classList.remove('hidden');
                     document.getElementById('broadcast-result-container').classList.add('hidden');
                     resetVesselHighlights();
                 });
             }
-            map.addControl(authDrawControl);
-
-            // 3. Fetch Rankings
+            if (authDrawControl) {
+                map.addControl(authDrawControl);
+            }
+            
             fetchRankings();
         } catch (err) {
             alert("Error in initAuthorityMode: " + err.message);
