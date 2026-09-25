@@ -55,35 +55,54 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
     
     try:
         yearly_data = []
-        with httpx.Client(timeout=30.0) as client:
-            for i in range(years):
-                yr = current_year - years + 1 + i
-                # Mid-January composite for each year
-                time_str = f"{yr}-01-16T12:00:00Z"
-                
-                # Fetch Chlorophyll-a
-                chl_url = f"https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1chlamday.json?chlorophyll[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
-                chl_resp = client.get(chl_url)
-                chl_resp.raise_for_status()
-                chl_rows = chl_resp.json().get("table", {}).get("rows", [])
-                
-                valid_chl = [r[-1] for r in chl_rows if r[-1] is not None]
-                mean_chl = round(sum(valid_chl) / len(valid_chl), 3) if valid_chl else 0.85
-                
-                # Fetch SST using JPL MUR Monthly (current, global, ultra-high resolution)
-                sst_url = f"https://coastwatch.pfeg.noaa.gov/erddap/griddap/jplMURSST41mday.json?sst[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
-                sst_resp = client.get(sst_url)
-                sst_resp.raise_for_status()
-                sst_rows = sst_resp.json().get("table", {}).get("rows", [])
-                
-                valid_sst = [r[-1] for r in sst_rows if r[-1] is not None]
-                mean_sst = round(sum(valid_sst) / len(valid_sst), 2) if valid_sst else 28.2
-                
-                yearly_data.append({
-                    "year": yr,
-                    "mean_sst_celsius": mean_sst,
-                    "mean_chlorophyll_a_mg_per_m3": mean_chl,
-                })
+        endpoints = ["coastwatch.pfeg.noaa.gov", "upwell.pfeg.noaa.gov", "polarwatch.noaa.gov"]
+        successful_endpoint = None
+        last_exception = None
+        
+        with httpx.Client(timeout=15.0) as client:
+            for endpoint in endpoints:
+                try:
+                    logger.info("Attempting ERDDAP fetch via %s", endpoint)
+                    yearly_data_attempt = []
+                    
+                    for i in range(years):
+                        yr = current_year - years + 1 + i
+                        time_str = f"{yr}-01-16T12:00:00Z"
+                        
+                        # Fetch Chlorophyll-a
+                        chl_url = f"https://{endpoint}/erddap/griddap/erdMH1chlamday.json?chlorophyll[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
+                        chl_resp = client.get(chl_url)
+                        chl_resp.raise_for_status()
+                        chl_rows = chl_resp.json().get("table", {}).get("rows", [])
+                        valid_chl = [r[-1] for r in chl_rows if r[-1] is not None]
+                        mean_chl = round(sum(valid_chl) / len(valid_chl), 3) if valid_chl else 0.85
+                        
+                        # Fetch SST
+                        sst_url = f"https://{endpoint}/erddap/griddap/jplMURSST41mday.json?sst[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
+                        sst_resp = client.get(sst_url)
+                        sst_resp.raise_for_status()
+                        sst_rows = sst_resp.json().get("table", {}).get("rows", [])
+                        valid_sst = [r[-1] for r in sst_rows if r[-1] is not None]
+                        mean_sst = round(sum(valid_sst) / len(valid_sst), 2) if valid_sst else 28.2
+                        
+                        yearly_data_attempt.append({
+                            "year": yr,
+                            "mean_sst_celsius": mean_sst,
+                            "mean_chlorophyll_a_mg_per_m3": mean_chl,
+                        })
+                    
+                    # If we made it here without exception, this endpoint succeeded
+                    yearly_data = yearly_data_attempt
+                    successful_endpoint = endpoint
+                    break  # Break out of the endpoint loop
+                    
+                except Exception as e:
+                    logger.warning("Endpoint %s failed: %s", endpoint, e)
+                    last_exception = e
+                    continue # Try next endpoint
+
+        if not successful_endpoint:
+            raise last_exception or Exception("All ERDDAP endpoints failed")
 
         # Compute trend direction from first to last data point
         first_chl = yearly_data[0]["mean_chlorophyll_a_mg_per_m3"]
@@ -102,7 +121,7 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
         sst_pct_change = round(((last_sst - first_sst) / first_sst) * 100, 1)
 
         result = {
-            "source": "NOAA CoastWatch ERDDAP (MODIS-Aqua chl, JPL MUR sst)",
+            "source": f"NOAA ERDDAP via {successful_endpoint} (MODIS-Aqua chl, JPL MUR sst)",
             "region": region,
             "analysis_period_years": years,
             "yearly_data": yearly_data,
@@ -137,7 +156,7 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
         return result
 
     except Exception as exc:
-        logger.error("ERDDAP API fetch failed: %s", exc)
+        logger.error("ERDDAP API multi-endpoint fetch failed: %s", exc)
         try:
             base_dir = os.path.dirname(os.path.dirname(__file__))
             fallback_path = os.path.join(base_dir, 'data', 'fallback', 'ecosystem_fallback_snapshot.json')
