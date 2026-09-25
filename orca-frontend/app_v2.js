@@ -638,7 +638,6 @@ document.addEventListener('DOMContentLoaded', () => {
             chatInput.focus();
         }
     }
-});
 
 
     // Trace Toggle Logic
@@ -1027,3 +1026,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+});
