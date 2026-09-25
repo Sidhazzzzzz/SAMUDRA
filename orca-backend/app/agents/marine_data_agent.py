@@ -55,7 +55,7 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
     
     try:
         yearly_data = []
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=30.0) as client:
             for i in range(years):
                 yr = current_year - years + 1 + i
                 # Mid-January composite for each year
@@ -70,8 +70,8 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
                 valid_chl = [r[-1] for r in chl_rows if r[-1] is not None]
                 mean_chl = round(sum(valid_chl) / len(valid_chl), 3) if valid_chl else 0.85
                 
-                # Fetch SST
-                sst_url = f"https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1sstdmday.json?sst[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
+                # Fetch SST using JPL MUR Monthly (current, global, ultra-high resolution)
+                sst_url = f"https://coastwatch.pfeg.noaa.gov/erddap/griddap/jplMURSST41mday.json?sst[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
                 sst_resp = client.get(sst_url)
                 sst_resp.raise_for_status()
                 sst_rows = sst_resp.json().get("table", {}).get("rows", [])
@@ -101,8 +101,8 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
         last_sst = yearly_data[-1]["mean_sst_celsius"]
         sst_pct_change = round(((last_sst - first_sst) / first_sst) * 100, 1)
 
-        return {
-            "source": "NOAA CoastWatch ERDDAP (MODIS-Aqua, erdMH1chlamday, erdMH1sstdmday)",
+        result = {
+            "source": "NOAA CoastWatch ERDDAP (MODIS-Aqua chl, JPL MUR sst)",
             "region": region,
             "analysis_period_years": years,
             "yearly_data": yearly_data,
@@ -123,19 +123,35 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
             "fetched_at": now.isoformat(),
         }
 
+        # Save to fallback snapshot if successful
+        try:
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            fallback_dir = os.path.join(base_dir, 'data', 'fallback')
+            os.makedirs(fallback_dir, exist_ok=True)
+            fallback_path = os.path.join(fallback_dir, 'ecosystem_fallback_snapshot.json')
+            with open(fallback_path, 'w') as f:
+                json.dump(result, f, indent=4)
+        except Exception as e:
+            logger.error("Failed to save ecosystem snapshot: %s", e)
+
+        return result
+
     except Exception as exc:
         logger.error("ERDDAP API fetch failed: %s", exc)
         try:
             base_dir = os.path.dirname(os.path.dirname(__file__))
             fallback_path = os.path.join(base_dir, 'data', 'fallback', 'ecosystem_fallback_snapshot.json')
+            if not os.path.exists(fallback_path):
+                raise FileNotFoundError("No genuine fallback snapshot exists yet.")
             with open(fallback_path, 'r') as f:
                 fb = json.load(f)
             now_str = now.strftime('%Y-%m-%d')
-            fb['source'] = f"LOCAL_FALLBACK_SNAPSHOT (captured 2024-02-10, live fetch failed on {now_str})"
+            fb['source'] = f"LOCAL_FALLBACK_SNAPSHOT (live fetch failed on {now_str}, returning last genuine fetch)"
             return fb
         except Exception as fallback_e:
             logger.error(f"Ecosystem fallback snapshot failed to load: {fallback_e}")
             return {
-                "source": "NOAA CoastWatch ERDDAP (MODIS-Aqua)",
-                "error": f"Live fetch failed and fallback unavailable: {str(exc)}"
+                "source": "NOAA CoastWatch ERDDAP",
+                "error": f"Live fetch failed ({type(exc).__name__}) and no genuine fallback data is available."
             }
+
