@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const eezPane = map.getPane('eezPane');
     const sectorsPane = map.getPane('sectorsPane');
     map.createPane('riskFieldPane');
-    map.getPane('riskFieldPane').style.zIndex = 390;
+    map.getPane('riskFieldPane').style.zIndex = 450;
     const riskFieldPane = map.getPane('riskFieldPane');
 
     const legendBox = document.getElementById('legend-box');
