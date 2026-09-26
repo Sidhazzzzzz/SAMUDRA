@@ -273,7 +273,7 @@ body {
     position: absolute;
     top: 20px;
     left: 20px;
-    z-index: 1000;
+    z-index: 1000; pointer-events: none;
     background-color: var(--bg-panel);
     border: 1px solid var(--accent-marine);
     border-radius: 4px;
@@ -325,7 +325,7 @@ body {
     position: absolute;
     bottom: 30px;
     left: 20px;
-    z-index: 1000;
+    z-index: 1000; pointer-events: none;
     background-color: var(--bg-panel);
     border: 1px solid var(--accent-marine);
     border-radius: 4px;

@@ -390,12 +390,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Persona Switcher
     let currentMode = "fishing";
     document.body.setAttribute('data-persona', currentMode);
+            setLoading(false);
+            document.getElementById('scientist-loading-indicator').classList.add('hidden');
+            document.getElementById('scientist-send-btn').disabled = false;
+            document.getElementById('scientist-input').disabled = false;
     document.querySelectorAll('.persona-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.persona-btn').forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
             currentMode = e.target.dataset.mode;
             document.body.setAttribute('data-persona', currentMode);
+            setLoading(false);
+            document.getElementById('scientist-loading-indicator').classList.add('hidden');
+            document.getElementById('scientist-send-btn').disabled = false;
+            document.getElementById('scientist-input').disabled = false;
             
             const title = document.getElementById('persona-title');
             const headerTitle = document.querySelector('.sidebar-header h1');
