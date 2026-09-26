@@ -1061,7 +1061,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         scientistWelcomeText.classList.add('hidden');
         scientistAnalysisContent.classList.add('hidden');
-        trendChartContainer.classList.add('hidden');
 
         try {
             const response = await fetch('http://127.0.0.1:8000/query', {
@@ -1083,7 +1082,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Render Trends Chart
             if (data.yearly_data && data.yearly_data.length > 0) {
                 renderTrendChart(data.yearly_data);
-                trendChartContainer.classList.remove('hidden');
+            } else {
+                trendChartWrapper.innerHTML = '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-muted); font-size: 0.8rem; text-align: center; width: 100%;">No trend data available for this query</div>';
             }
 
         } catch (error) {
@@ -1111,9 +1111,9 @@ document.addEventListener('DOMContentLoaded', () => {
         svg.style.overflow = 'visible';
 
         const years = yearlyData.map(d => d.year);
-        const sstVals = yearlyData.map(d => d.sst);
+        const sstVals = yearlyData.map(d => d.mean_sst_celsius);
         
-        const hasChl = yearlyData.some(d => d.chlorophyll !== null);
+        const hasChl = yearlyData.some(d => d.mean_chlorophyll_a_mg_per_m3 !== null && d.mean_chlorophyll_a_mg_per_m3 !== undefined);
         
         const minSst = Math.min(...sstVals) - 0.5;
         const maxSst = Math.max(...sstVals) + 0.5;
@@ -1131,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let sstPathD = '';
         yearlyData.forEach((d, i) => {
             const x = padding + (i / (yearlyData.length - 1)) * (width - 2 * padding);
-            const y = height - padding - ((d.sst - minSst) / (maxSst - minSst)) * (height - 2 * padding);
+            const y = height - padding - ((d.mean_sst_celsius - minSst) / (maxSst - minSst)) * (height - 2 * padding);
             
             if (i === 0) sstPathD += `M ${x} ${y} `;
             else sstPathD += `L ${x} ${y} `;
@@ -1145,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Tooltip via title
             const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-            title.textContent = `Year: ${d.year}\nSST: ${d.sst.toFixed(2)} °C`;
+            title.textContent = `Year: ${d.year}\nSST: ${d.mean_sst_celsius.toFixed(2)} °C`;
             dot.appendChild(title);
             
             svg.appendChild(dot);
@@ -1171,14 +1171,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Render Chl bars or 'unavailable' text
         if (hasChl) {
             // Find max/min chl to scale bars
-            const chlVals = yearlyData.map(d => d.chlorophyll).filter(c => c !== null);
+            const chlVals = yearlyData.map(d => d.mean_chlorophyll_a_mg_per_m3).filter(c => c !== null);
             const maxChl = Math.max(...chlVals) || 1;
             
             yearlyData.forEach((d, i) => {
                 const x = padding + (i / (yearlyData.length - 1)) * (width - 2 * padding);
                 
-                if (d.chlorophyll !== null) {
-                    const barHeight = (d.chlorophyll / maxChl) * (height - 2 * padding);
+                if (d.mean_chlorophyll_a_mg_per_m3 !== null) {
+                    const barHeight = (d.mean_chlorophyll_a_mg_per_m3 / maxChl) * (height - 2 * padding);
                     const barY = height - padding - barHeight;
                     
                     const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1190,7 +1190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     bar.setAttribute('opacity', '0.5');
                     
                     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-                    title.textContent = `Chlorophyll: ${d.chlorophyll.toFixed(2)} mg/m³`;
+                    title.textContent = `Chlorophyll: ${d.mean_chlorophyll_a_mg_per_m3.toFixed(2)} mg/m³`;
                     bar.appendChild(title);
                     
                     svg.insertBefore(bar, sstPath); // put bars behind line
