@@ -498,22 +498,40 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
     if hasattr(state, '_extra_data') and state._extra_data:
         data_snapshot.update(state._extra_data)
 
-    verdict_info = state.verdict or {
-        "verdict": "CAUTION",
-        "reason": "No verdict was evaluated.",
-        "evaluated_at": "",
-    }
+    is_ecosystem = getattr(state, 'status', None) == "ECOSYSTEM_ANALYSIS"
+    
+    if is_ecosystem:
+        sys_prompt_to_use = (
+            "You are ORCA, a maritime advisory narrator.\n"
+            "Your job is to explain the ecosystem trends clearly in plain language using the supporting data provided.\n\n"
+            "STRICT RULES:\n"
+            "1. This is a scientific query. Do NOT include a SAFE/CAUTION/NO-GO verdict. Just summarize the ecosystem data.\n"
+            "2. ONLY narrate the values present in the JSON - never invent, alter, or add any numeric data.\n"
+            "3. If ecosystem trend data is partial (e.g. SST is present but Chlorophyll is unavailable/null), confidently report the real SST trend and explicitly state: 'Chlorophyll data is currently unavailable (NOAA ERDDAP unreachable)'. Do NOT suppress the valid SST data just because Chlorophyll failed.\n"
+            "4. Keep the response under 200 words.\n"
+        )
+        verdict_str = "NO SAFETY VERDICT APPLIES (Ecosystem Query)"
+        instruction = "Write a concise advisory explaining the trends using the data."
+    else:
+        sys_prompt_to_use = _NARRATION_SYSTEM
+        verdict_info = state.verdict or {
+            "verdict": "CAUTION",
+            "reason": "No verdict was evaluated.",
+            "evaluated_at": "",
+        }
+        verdict_str = f"```json\n{json.dumps(verdict_info, indent=2)}\n```"
+        instruction = "Write a concise advisory for the captain. State the exact verdict above and explain the rationale using the supporting data."
 
     messages = [
-        SystemMessage(content=_NARRATION_SYSTEM),
+        SystemMessage(content=sys_prompt_to_use),
         HumanMessage(
             content=(
                 f"User query: {state.user_query}\n\n"
-                f"PRE-COMPUTED DETERMINISTIC VERDICT (MANDATORY TO RELAY AS-IS):\n"
-                f"```json\n{json.dumps(verdict_info, indent=2)}\n```\n\n"
+                f"PRE-COMPUTED DETERMINISTIC VERDICT:\n"
+                f"{verdict_str}\n\n"
                 f"SUPPORTING MARITIME DATA:\n"
                 f"```json\n{json.dumps(data_snapshot, indent=2, default=str)}\n```\n\n"
-                f"Write a concise advisory for the captain. State the exact verdict above and explain the rationale using the supporting data.\n"
+                f"{instruction}\n"
                 f"IMPORTANT: You MUST write the ENTIRE advisory in language code '{state.detected_language}' (detected from the user's query). Do not write in English unless the language code is 'en'."
             )
         ),
@@ -535,8 +553,16 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
                     model_label, len(state.final_advisory_text))
     except Exception as exc:
         logger.error("Narration LLM call failed: %s", exc)
+        if state.verdict:
+            raw_summary = f"Verdict: {state.verdict.get('verdict')} - {state.verdict.get('reason')}"
+        elif hasattr(state, '_extra_data') and state._extra_data and 'ecosystem_trend' in state._extra_data:
+            trend = state._extra_data['ecosystem_trend'].get('trend', {})
+            raw_summary = f"Ecosystem trend: SST {trend.get('sst_direction')}, Chlorophyll {trend.get('chlorophyll_a_direction')}"
+        else:
+            raw_summary = "Data retrieved successfully."
+            
         state.final_advisory_text = (
-            f"Advisory Verdict: {verdict_info.get('verdict')} — {verdict_info.get('reason')}"
+            f"Advisory computed successfully, but narration is temporarily unavailable \u2014 raw data: [{raw_summary}]"
         )
 
     return state
@@ -672,25 +698,39 @@ def handle_query(state: RouteRequestState) -> RouteRequestState:
         return state
 
     # Deterministic verdict evaluation
-    weather_data = state.weather_risks[0] if state.weather_risks else None
-    if weather_data is None:
-        bbox = list(state.bounding_box) if state.bounding_box else _DEFAULT_BBOX
-        weather_data = get_storm_status.invoke({"region_bbox": bbox})
-        state.weather_risks = [weather_data]
-
-    pfz_data = {"pfz_zones": state.pfz_targets} if state.pfz_targets else None
-    route_data = state.route_details
-
-    t0_verdict = time.time()
-    verdict_result = evaluate_verdict(
-        weather_result=weather_data,
-        pfz_result=pfz_data,
-        route_result=route_data,
+    is_pure_ecosystem_query = (
+        hasattr(state, '_extra_data') and 
+        state._extra_data and 
+        "ecosystem_trend" in state._extra_data and 
+        not state.weather_risks and 
+        not state.pfz_targets and 
+        not state.route_details
     )
-    append_trace(state, "verdict_evaluation", t0_verdict, f"Evaluated verdict: {verdict_result['verdict']}", "live" if not verdict_result.get('fallback_used') else "fallback")
-    state.verdict = verdict_result
-    logger.info("DETERMINISTIC VERDICT: %s | Reason: %s",
-                verdict_result["verdict"], verdict_result["reason"])
+
+    if is_pure_ecosystem_query:
+        state.verdict = None
+        state.status = "ECOSYSTEM_ANALYSIS"
+        logger.info("Bypassing safety verdict for pure ecosystem trend query.")
+    else:
+        weather_data = state.weather_risks[0] if state.weather_risks else None
+        if weather_data is None:
+            bbox = list(state.bounding_box) if state.bounding_box else _DEFAULT_BBOX
+            weather_data = get_storm_status.invoke({"region_bbox": bbox})
+            state.weather_risks = [weather_data]
+
+        pfz_data = {"pfz_zones": state.pfz_targets} if state.pfz_targets else None
+        route_data = state.route_details
+
+        t0_verdict = time.time()
+        verdict_result = evaluate_verdict(
+            weather_result=weather_data,
+            pfz_result=pfz_data,
+            route_result=route_data,
+        )
+        append_trace(state, "verdict_evaluation", t0_verdict, f"Evaluated verdict: {verdict_result['verdict']}", "live" if not verdict_result.get('fallback_used') else "fallback")
+        state.verdict = verdict_result
+        logger.info("DETERMINISTIC VERDICT: %s | Reason: %s",
+                    verdict_result["verdict"], verdict_result["reason"])
 
     state = narrate_result(state)
     return state
