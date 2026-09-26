@@ -32,6 +32,9 @@ import logging
 
 logger = logging.getLogger("orca.agents.marine_data")
 
+from app.cache import with_cache
+
+@with_cache(ttl=300)
 def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
     """Return ecosystem trend data for a coastal region over the specified period.
 
@@ -105,33 +108,47 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
     chl_success = False
     
     try:
-        with httpx.Client(timeout=15.0) as client:
-            for endpoint in endpoints:
-                try:
-                    logger.info("Attempting ERDDAP CHL fetch via %s", endpoint)
-                    
-                    for i in range(years):
-                        yr = yearly_data[i]["year"]
-                        time_str = f"{yr}-01-16T12:00:00Z"
-                        
-                        chl_url = f"https://{endpoint}/erddap/griddap/erdMH1chlamday.json?chlorophyll[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
-                        chl_resp = client.get(chl_url)
-                        chl_resp.raise_for_status()
-                        chl_rows = chl_resp.json().get("table", {}).get("rows", [])
-                        valid_chl = [r[-1] for r in chl_rows if r[-1] is not None]
-                        mean_chl = round(sum(valid_chl) / len(valid_chl), 3) if valid_chl else None
-                        
-                        yearly_data[i]["mean_chlorophyll_a_mg_per_m3"] = mean_chl
-                        
-                    chl_source = f"NOAA ERDDAP via {endpoint} (erdMH1chlamday)"
-                    chl_success = True
-                    break # Success, break endpoint loop
-                except Exception as e:
-                    logger.warning("Endpoint %s failed for CHL: %s", endpoint, e)
-                    continue
+        import asyncio
+        async def fetch_chl_from_endpoint(endpoint):
+            logger.info("Attempting ERDDAP CHL fetch via %s", endpoint)
+            async with httpx.AsyncClient(timeout=15.0) as async_client:
+                endpoint_yearly = []
+                for i in range(years):
+                    yr = yearly_data[i]["year"]
+                    time_str = f"{yr}-01-16T12:00:00Z"
+                    chl_url = f"https://{endpoint}/erddap/griddap/erdMH1chlamday.json?chlorophyll[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
+                    chl_resp = await async_client.get(chl_url)
+                    chl_resp.raise_for_status()
+                    chl_rows = chl_resp.json().get("table", {}).get("rows", [])
+                    valid_chl = [r[-1] for r in chl_rows if r[-1] is not None]
+                    mean_chl = round(sum(valid_chl) / len(valid_chl), 3) if valid_chl else None
+                    endpoint_yearly.append(mean_chl)
+                return endpoint, endpoint_yearly
 
-        if not chl_success:
+        async def fetch_any_chl():
+            tasks = [asyncio.create_task(fetch_chl_from_endpoint(ep)) for ep in endpoints]
+            pending = tasks
+            while pending:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    try:
+                        res_endpoint, res_yearly = task.result()
+                        for t in pending:
+                            t.cancel()
+                        return res_endpoint, res_yearly
+                    except Exception as e:
+                        logger.warning("Endpoint failed for CHL: %s", e)
             raise Exception("All ERDDAP endpoints failed")
+
+        from concurrent.futures import ThreadPoolExecutor
+        def _run_async():
+            return asyncio.run(fetch_any_chl())
+        with ThreadPoolExecutor(1) as pool:
+            success_ep, success_yearly = pool.submit(_run_async).result()
+        for i in range(years):
+            yearly_data[i]["mean_chlorophyll_a_mg_per_m3"] = success_yearly[i]
+        chl_source = f"NOAA ERDDAP via {success_ep} (erdMH1chlamday)"
+        chl_success = True
             
     except Exception as exc:
         logger.error("ERDDAP API multi-endpoint CHL fetch failed: %s", exc)

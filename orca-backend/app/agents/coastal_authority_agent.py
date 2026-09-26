@@ -94,35 +94,36 @@ COASTAL_BLOCKS = [
 
 
 
+import asyncio
+
+async def fetch_block_data(block):
+    bbox = [block["lat"] - 0.05, block["lon"] - 0.05, block["lat"] + 0.05, block["lon"] + 0.05]
+    weather = await asyncio.to_thread(get_storm_status, region_bbox=bbox)
+    
+    verdict = evaluate_verdict(weather)
+    wave = weather.get("wave_height_m")
+    wind = weather.get("wind_gusts_knots")
+    hmi = calculate_hmi(weather)
+    
+    return {
+        "block_name": block["name"],
+        "lat": block["lat"],
+        "lon": block["lon"],
+        "hmi_score": round(hmi, 2),
+        "wave_height_m": wave,
+        "wind_gusts_knots": wind,
+        "action_tier": verdict.get("verdict"),
+        "reason": verdict.get("reason"),
+        "source": weather.get("source")
+    }
+
 def get_coastal_block_rankings() -> list:
     """Fetch real weather data and compute HMI for coastal blocks, returning a ranked list."""
-    results = []
+    async def get_all():
+        tasks = [fetch_block_data(block) for block in COASTAL_BLOCKS]
+        return await asyncio.gather(*tasks)
     
-    for block in COASTAL_BLOCKS:
-        # Generate a small bbox around the block for the weather API
-        bbox = [block["lat"] - 0.05, block["lon"] - 0.05, block["lat"] + 0.05, block["lon"] + 0.05]
-        weather = get_storm_status(region_bbox=bbox)
-        
-        # Evaluate standard verdict
-        verdict = evaluate_verdict(weather)
-        
-        # Calculate real HMI using the unified formula
-        wave = weather.get("wave_height_m")
-        wind = weather.get("wind_gusts_knots")
-        hmi = calculate_hmi(weather)
-        
-        results.append({
-            "block_name": block["name"],
-            "lat": block["lat"],
-            "lon": block["lon"],
-            "hmi_score": round(hmi, 2),
-            "wave_height_m": wave,
-            "wind_gusts_knots": wind,
-            "action_tier": verdict.get("verdict"),
-            "reason": verdict.get("reason"),
-            "source": weather.get("source")
-        })
-    
+    results = asyncio.run(get_all())
     # Sort descending by HMI score (highest risk first)
     results.sort(key=lambda x: x["hmi_score"], reverse=True)
     return results

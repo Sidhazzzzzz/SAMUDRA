@@ -129,14 +129,34 @@ async def system_status():
     return {"status": "all_ok" if all_ok else "degraded", "checks": checks}
 
 
+import time
+import re
+
+_QUERY_CACHE = {}
+
 @app.post("/query")
 async def query(body: QueryRequest) -> RouteRequestState:
+    # Normalize query: lowercase, strip punctuation
+    normalized_q = re.sub(r'[^a-z0-9]', '', body.user_query.lower())
+    cache_key = f"{normalized_q}_{body.mode}"
+    now = time.time()
+    
+    # Check cache (300s TTL)
+    if cache_key in _QUERY_CACHE and (now - _QUERY_CACHE[cache_key]['time'] < 300):
+        cached_state = _QUERY_CACHE[cache_key]['data'].copy(deep=True)
+        if cached_state.final_advisory_text and " (Source: Cache)" not in cached_state.final_advisory_text:
+            cached_state.final_advisory_text += "\n\n*(Source: Cache)*"
+        return cached_state
+
     state = RouteRequestState(
         user_query=body.user_query,
         mode=body.mode,
         chat_history=body.chat_history,
     )
     result = handle_query(state)
+    
+    # Store in cache
+    _QUERY_CACHE[cache_key] = {'time': now, 'data': result.copy(deep=True)}
     return result
 
 @app.post("/export-pdf")

@@ -23,6 +23,9 @@ WIND_SPEED_THRESHOLD_KNOTS = 20.0
 REQUEST_TIMEOUT_SECONDS = 8.0
 
 
+from app.cache import with_cache
+
+@with_cache(ttl=300)
 def get_storm_status(region_bbox: list[float] | None = None, target_time: str = "now") -> dict:
     """Fetch live marine wave and wind conditions from Open-Meteo Marine API.
 
