@@ -4,9 +4,40 @@
     --space-md: 16px;
     --space-lg: 24px;
     /* Admiralty Chart Conventions (Only for Map / Accents / Modal) */
-    --accent-marine: #3A6B8C;
-    --accent-marine-glow: rgba(58, 107, 140, 0.3);
+    --theme-fishing: #00BFA5; /* sea-green */
+    --theme-fishing-glow: rgba(0, 191, 165, 0.3);
+    --theme-commercial: #2196F3; /* distinct blue */
+    --theme-commercial-glow: rgba(33, 150, 243, 0.3);
+    --theme-authority: #D81B60; /* hazard-red/amber */
+    --theme-authority-glow: rgba(216, 27, 96, 0.3);
+    --theme-scientist: #00BCD4; /* teal/cyan */
+    --theme-scientist-glow: rgba(0, 188, 212, 0.3);
 
+    --accent-marine: var(--theme-fishing);
+    --accent-marine-glow: var(--theme-fishing-glow);
+}
+
+body[data-persona="fishing"] {
+    --accent-marine: var(--theme-fishing);
+    --accent-marine-glow: var(--theme-fishing-glow);
+}
+
+body[data-persona="commercial"] {
+    --accent-marine: var(--theme-commercial);
+    --accent-marine-glow: var(--theme-commercial-glow);
+}
+
+body[data-persona="authority"] {
+    --accent-marine: var(--theme-authority);
+    --accent-marine-glow: var(--theme-authority-glow);
+}
+
+body[data-persona="scientist"] {
+    --accent-marine: var(--theme-scientist);
+    --accent-marine-glow: var(--theme-scientist-glow);
+}
+
+:root {
     /* Dark Theme Base */
     --bg-dark: #0B101E;
     --bg-navy: #151B2B;
@@ -1253,4 +1284,54 @@ body {
     background: var(--bg-panel);
     border-top: 1px solid var(--accent-marine);
     border-left: 1px solid var(--accent-marine);
+}
+
+
+/* Map Element Hover Transitions */
+.interactive-map-element {
+    transition: stroke-width 0.2s ease, stroke-opacity 0.2s ease, fill-opacity 0.2s ease;
+}
+.interactive-map-element:hover {
+    stroke-width: 4px !important;
+    stroke-opacity: 1 !important;
+}
+
+.risk-field-cell {
+    transition: fill-opacity 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease, stroke-opacity 0.2s ease;
+    cursor: pointer;
+}
+.risk-field-cell:hover {
+    fill-opacity: 0.8 !important;
+    stroke: var(--accent-marine) !important;
+    stroke-width: 2px !important;
+    stroke-opacity: 1 !important;
+}
+
+/* Authority Draw Polygon Tool Customization */
+.authority-draw-vertex {
+    background: var(--bg-navy) !important;
+    border: 2px solid var(--accent-marine) !important;
+    border-radius: 50% !important;
+    width: 12px !important;
+    height: 12px !important;
+    margin-left: -6px !important;
+    margin-top: -6px !important;
+    transition: transform 0.2s ease;
+}
+.authority-draw-vertex:hover {
+    transform: scale(1.3);
+}
+
+/* Base leaflet draw in-progress lines */
+.leaflet-draw-guide-dash {
+    background-color: var(--accent-marine) !important;
+}
+.leaflet-draw-tooltip {
+    background: var(--bg-panel) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--accent-marine) !important;
+    border-radius: 6px !important;
+}
+.leaflet-draw-tooltip::before {
+    border-right-color: var(--accent-marine) !important;
 }

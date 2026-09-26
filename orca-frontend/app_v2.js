@@ -1,3 +1,70 @@
+// Global Error Handler
+(function() {
+    function showErrorOverlay(msg, source, lineno, colno, error) {
+        if (document.getElementById('global-error-overlay')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'global-error-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(11, 16, 30, 0.9)';
+        overlay.style.zIndex = '9999';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.color = '#FFFFFF';
+        overlay.style.fontFamily = 'var(--font-body, Inter, sans-serif)';
+
+        const box = document.createElement('div');
+        box.style.background = 'var(--bg-panel, #1C2541)';
+        box.style.border = '1px solid var(--alert-nogo, #D81B60)';
+        box.style.borderRadius = '8px';
+        box.style.padding = '30px';
+        box.style.maxWidth = '600px';
+        box.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+        
+        box.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                <div style="background: rgba(216, 27, 96, 0.2); padding: 10px; border-radius: 50%;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--alert-nogo, #D81B60)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h2 style="margin: 0; color: var(--alert-nogo, #D81B60); font-size: 1.5rem;">System Exception</h2>
+            </div>
+            <p style="color: var(--text-muted, #8D99AE); font-size: 0.9rem; margin-bottom: 20px;">
+                An unexpected frontend error occurred and halted the dashboard.
+            </p>
+            <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: #E0E0E0; overflow-x: auto; margin-bottom: 25px; border-left: 3px solid var(--alert-nogo, #D81B60);">
+                ${msg}
+            </div>
+            <button id="error-reload-btn" style="background: var(--alert-nogo, #D81B60); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: 600; width: 100%; transition: opacity 0.2s;">
+                RELOAD DASHBOARD
+            </button>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        document.getElementById('error-reload-btn').addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
+
+    window.addEventListener('error', function(e) {
+        showErrorOverlay(e.message, e.filename, e.lineno, e.colno, e.error);
+    });
+
+    window.addEventListener('unhandledrejection', function(e) {
+        showErrorOverlay(e.reason ? e.reason.message || e.reason : 'Promise Rejected', '', 0, 0, e.reason);
+    });
+})();
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Initialize Map
     // Centered on Gulf of Mannar bounding box (lat 9.0–9.5, lon 79.0–79.8)
@@ -138,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 onEachFeature: function(feature, layer) {
                     if (feature.properties && feature.properties.SECTORNAME) {
-                        layer.bindPopup(`<b>Sector:</b> ${feature.properties.SECTORNAME}`);
+                        layer.bindPopup(`<b>Sector:</b> ${feature.properties.SECTORNAME}`, {className: 'marine-popup'});
                     }
                 }
             }).addTo(sectorsGroup);
@@ -261,7 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             weight: 0,
                             fillColor: fillColor,
                             fillOpacity: 1,
-                            pane: 'riskFieldPane'
+                            pane: 'riskFieldPane',
+                            className: 'risk-field-cell'
                         });
                         
                         // Popup logic
@@ -550,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     weight: 0,
                     className: 'weather-blob',
                     pane: 'weatherPane'
-                }).addTo(weatherGroup).bindPopup(`<b>Weather Bounds</b><br>Active Storm: ${weather.active}<br>Wave Height: ${weather.wave_height_m}m`);
+                }).addTo(weatherGroup).bindPopup(`<b>Weather Bounds</b><br>Active Storm: ${weather.active}<br>Wave Height: ${weather.wave_height_m}m`, {className: 'marine-popup'});
                 boundsList.push(L.rectangle(rectBounds).getBounds());
             });
         }
@@ -563,14 +631,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     return {
                         color: '#5C8CA3',
                         weight: 4,
-                        opacity: 0.8
+                        opacity: 0.8,
+                        className: 'interactive-map-element'
                     };
                 },
                 onEachFeature: function(feature, layer) {
                     const props = feature.properties || {};
                     const sector = props.State_Name || 'Unknown';
                     const length = props.Length ? parseFloat(props.Length).toFixed(1) : '?';
-                    layer.bindPopup(`<b>PFZ Advisory Line</b><br>Sector: ${sector}<br>Length: ${length} km`);
+                    layer.bindPopup(`<b>PFZ Advisory Line</b><br>Sector: ${sector}<br>Length: ${length} km`, {className: 'marine-popup'});
                 }
             }).addTo(pfzGroup);
             
@@ -628,7 +697,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 weight: 5, // Increased from 4
                 dashArray: '5, 10',
                 lineJoin: 'round',
-                pane: 'routePane'
+                pane: 'routePane',
+                className: 'interactive-map-element'
             }).addTo(routeGroup);
 
             const start = data.optimized_route[0];
@@ -639,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fillOpacity: 1,
                 weight: 3,
                 pane: 'routePane'
-            }).addTo(routeGroup).bindPopup('<b>Departure</b>');
+            }).addTo(routeGroup).bindPopup('<b>Departure</b>', {className: 'marine-popup'});
 
             const end = data.optimized_route[data.optimized_route.length - 1];
             L.circleMarker([end.lat, end.lon], {
@@ -649,7 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fillOpacity: 1,
                 weight: 3,
                 pane: 'routePane'
-            }).addTo(routeGroup).bindPopup('<b>Destination</b>');
+            }).addTo(routeGroup).bindPopup('<b>Destination</b>', {className: 'marine-popup'});
 
             boundsList.push(routeLine.getBounds());
         }
@@ -994,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 simulatedFleet.forEach(v => {
                     const icon = L.divIcon({ className: 'vessel-icon', html: 'VSL', iconSize: [24, 24] });
                     const marker = L.marker([v.lat, v.lon], {icon}).addTo(fleetGroup);
-                    marker.bindPopup(`<b>${v.id}</b><br>Type: ${v.type}`);
+                    marker.bindPopup(`<b>${v.id}</b><br>Type: ${v.type}`, {className: 'marine-popup'});
                     marker.vesselId = v.id;
                 });
             } else if (!map.hasLayer(fleetGroup)) {
@@ -1007,7 +1077,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 authDrawControl = new L.Control.Draw({
                     position: 'topright',
                     draw: {
-                        polygon: { shapeOptions: { color: '#D81B60', weight: 3 } },
+                        polygon: { 
+                            shapeOptions: { 
+                                color: 'var(--accent-marine)', 
+                                weight: 3,
+                                fillOpacity: 0.2,
+                                className: 'authority-polygon interactive-map-element'
+                            },
+                            icon: new L.DivIcon({
+                                iconSize: new L.Point(12, 12),
+                                className: 'leaflet-div-icon leaflet-editing-icon authority-draw-vertex'
+                            }),
+                            touchIcon: new L.DivIcon({
+                                iconSize: new L.Point(12, 12),
+                                className: 'leaflet-div-icon leaflet-editing-icon authority-draw-vertex'
+                            })
+                        },
                         polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
                     },
                     edit: false
@@ -1412,3 +1497,4 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 });
+
