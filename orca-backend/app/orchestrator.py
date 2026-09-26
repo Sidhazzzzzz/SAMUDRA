@@ -34,6 +34,8 @@ def append_trace(state, stage: str, t_start: float, summary: str, source_type: s
         "source_type": source_type
     })
 
+import httpx
+
 from app.schemas import RouteRequestState
 
 # ── Agent mock implementations (unchanged) ─────────────────────────────────
@@ -297,14 +299,14 @@ def _build_primary_llm():
     """Groq (qwen3.8-27b) — primary model."""
     from langchain_groq import ChatGroq
 
-    return ChatGroq(model="qwen/qwen3.8-27b", temperature=0)
+    return ChatGroq(model="qwen/qwen3.8-27b", temperature=0, request_timeout=30)
 
 
 def _build_fallback_llm():
     """Google Gemini 3.6 Flash — fallback model."""
     from langchain_google_genai import ChatGoogleGenerativeAI
 
-    return ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0)
+    return ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0, timeout=30)
 
 
 def _invoke_with_fallback(messages, *, bind_tools: bool) -> tuple[Any, str]:
@@ -469,11 +471,10 @@ def parse_intent_and_dispatch(state: RouteRequestState) -> RouteRequestState:
                 state._extra_data = {}
             state._extra_data["commercial_advisory"] = result
         elif tool_name == "get_ecosystem_trend":
-            # Store ecosystem trend data in the state for narration
-            # (no separate state field yet — pass via weather_risks or a generic bucket)
             if not hasattr(state, '_extra_data'):
                 state._extra_data = {}
             state._extra_data["ecosystem_trend"] = result
+            state.yearly_data = result.get("yearly_data", [])
 
     return state
 
@@ -573,8 +574,6 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
 
 def get_location_coordinates(query: str) -> tuple[float, float] | None:
     import re
-    import requests
-    import urllib.parse
     
     # Tier 1: Coordinate Regex
     coord_pattern = r'(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)'
@@ -615,19 +614,19 @@ def get_location_coordinates(query: str) -> tuple[float, float] | None:
             return coords
 
     # Tier 3: Hardened Nominatim Fallback
-    url = 'https://nominatim.openstreetmap.org/search?q=' + urllib.parse.quote(query) + '&format=json&limit=1'
     try:
-        response = requests.get(
-            url, 
+        nom_resp = httpx.get(
+            'https://nominatim.openstreetmap.org/search',
+            params={'q': query, 'format': 'json', 'limit': '1'},
             headers={'User-Agent': 'ORCA_Maritime_App/1.0'},
-            timeout=1.5
+            timeout=3.0,
         )
-        response.raise_for_status()
-        data = response.json()
+        nom_resp.raise_for_status()
+        data = nom_resp.json()
         if data:
             logger.info(f"Location resolved via Tier 3 (Nominatim): {data[0]['lat']}, {data[0]['lon']}")
             return float(data[0]['lat']), float(data[0]['lon'])
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         logger.warning(f"Tier 3 Nominatim error or timeout: {e}")
         return None
         

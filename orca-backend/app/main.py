@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, Response, Query
+import logging
+import traceback
+
+from fastapi import FastAPI, Request, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.schemas import RouteRequestState
@@ -25,6 +29,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+logger = logging.getLogger("orca.main")
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Last-resort safety net — catches any unhandled exception and returns
+    a structured JSON error.  Never exposes raw stack traces to clients."""
+    logger.error(
+        "Unhandled exception on %s %s: %s",
+        request.method, request.url.path, exc, exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "error_type": type(exc).__name__,
+            "message": "An internal error occurred. The ORCA team has been notified.",
+            "path": str(request.url.path),
+        },
+    )
+
+
 
 # ── Request body for /query ────────────────────────────────────────────────
 class BroadcastRequest(BaseModel):
@@ -39,6 +65,7 @@ class BroadcastRequest(BaseModel):
 class QueryRequest(BaseModel):
     user_query: str
     mode: str = "fishing"
+    chat_history: list[dict] = []
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -49,9 +76,66 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/system/status")
+async def system_status():
+    """Check live reachability of every external dependency in one call."""
+    import asyncio
+    import os
+    import httpx as _httpx
+
+    checks: dict = {}
+
+    async def probe(name: str, url: str, timeout: float = 5.0):
+        try:
+            async with _httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.get(
+                    url, headers={"User-Agent": "ORCA_Maritime_App/1.0"}
+                )
+                checks[name] = {"reachable": True, "status_code": resp.status_code}
+        except Exception as e:
+            checks[name] = {"reachable": False, "error": f"{type(e).__name__}: {e}"}
+
+    await asyncio.gather(
+        probe("incois_wfs", "https://incois.gov.in/geoserver/web/"),
+        probe(
+            "open_meteo_marine",
+            "https://marine-api.open-meteo.com/v1/marine?latitude=9.25&longitude=79.4&current=wave_height",
+        ),
+        probe(
+            "open_meteo_weather",
+            "https://api.open-meteo.com/v1/forecast?latitude=9.25&longitude=79.4&current=wind_speed_10m",
+        ),
+        probe(
+            "opentopodata",
+            "https://api.opentopodata.org/v1/gebco2020?locations=9.25,79.4",
+        ),
+        probe(
+            "nominatim",
+            "https://nominatim.openstreetmap.org/search?q=Rameswaram&format=json&limit=1",
+        ),
+        probe("noaa_erddap_coastwatch", "https://coastwatch.pfeg.noaa.gov/erddap/version", 8.0),
+        probe("noaa_erddap_upwell", "https://upwell.pfeg.noaa.gov/erddap/version", 8.0),
+        probe("noaa_erddap_polarwatch", "https://polarwatch.noaa.gov/erddap/version", 8.0),
+    )
+
+    # LLM API keys — presence check only (no billing)
+    checks["groq_api_key"] = {"configured": bool(os.getenv("GROQ_API_KEY"))}
+    checks["gemini_api_key"] = {"configured": bool(os.getenv("GOOGLE_API_KEY"))}
+
+    all_ok = all(
+        c.get("reachable", c.get("configured", False)) for c in checks.values()
+    )
+
+    return {"status": "all_ok" if all_ok else "degraded", "checks": checks}
+
+
 @app.post("/query")
 async def query(body: QueryRequest) -> RouteRequestState:
-    state = RouteRequestState(user_query=body.user_query, mode=body.mode)
+    state = RouteRequestState(
+        user_query=body.user_query,
+        mode=body.mode,
+        chat_history=body.chat_history,
+    )
     result = handle_query(state)
     return result
 

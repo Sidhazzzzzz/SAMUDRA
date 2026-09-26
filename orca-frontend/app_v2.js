@@ -321,11 +321,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Persona Switcher
     let currentMode = "fishing";
+    document.body.setAttribute('data-persona', currentMode);
     document.querySelectorAll('.persona-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.persona-btn').forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
             currentMode = e.target.dataset.mode;
+            document.body.setAttribute('data-persona', currentMode);
             
             const title = document.getElementById('persona-title');
             const headerTitle = document.querySelector('.sidebar-header h1');
@@ -375,12 +377,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 3. Chat Form Submit
+    // Track conversation turns for multi-turn context (last 6 messages = 3 full turns)
+    const conversationTurns = [];
+
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         let query = chatInput.value.trim();
         if (!query) return;
 
         appendMessage('COMMANDER', query, 'user-msg');
+        conversationTurns.push({ role: 'user', content: query });
         
 
         chatInput.value = '';
@@ -391,7 +397,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('http://127.0.0.1:8000/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_query: query, mode: currentMode })
+                body: JSON.stringify({
+                    user_query: query,
+                    mode: currentMode,
+                    chat_history: conversationTurns.slice(-6)
+                })
             });
 
             if (!response.ok) {
@@ -399,6 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
+            // Track assistant response for multi-turn context
+            if (data.final_advisory_text) {
+                conversationTurns.push({ role: 'assistant', content: data.final_advisory_text });
+            }
             handleSystemResponse(data);
 
         } catch (error) {
