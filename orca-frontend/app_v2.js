@@ -1079,7 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     draw: {
                         polygon: { 
                             shapeOptions: { 
-                                color: '#D81B60', 
+                                color: '#3A6B8C', 
                                 weight: 3,
                                 fillOpacity: 0.2,
                                 className: 'authority-polygon interactive-map-element'

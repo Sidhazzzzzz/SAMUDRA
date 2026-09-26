@@ -4,37 +4,8 @@
     --space-md: 16px;
     --space-lg: 24px;
     /* Admiralty Chart Conventions (Only for Map / Accents / Modal) */
-    --theme-fishing: #00BFA5; /* sea-green */
-    --theme-fishing-glow: rgba(0, 191, 165, 0.3);
-    --theme-commercial: #2196F3; /* distinct blue */
-    --theme-commercial-glow: rgba(33, 150, 243, 0.3);
-    --theme-authority: #D81B60; /* hazard-red/amber */
-    --theme-authority-glow: rgba(216, 27, 96, 0.3);
-    --theme-scientist: #00BCD4; /* teal/cyan */
-    --theme-scientist-glow: rgba(0, 188, 212, 0.3);
-
-    --accent-marine: var(--theme-fishing);
-    --accent-marine-glow: var(--theme-fishing-glow);
-}
-
-body[data-persona="fishing"] {
-    --accent-marine: var(--theme-fishing);
-    --accent-marine-glow: var(--theme-fishing-glow);
-}
-
-body[data-persona="commercial"] {
-    --accent-marine: var(--theme-commercial);
-    --accent-marine-glow: var(--theme-commercial-glow);
-}
-
-body[data-persona="authority"] {
-    --accent-marine: var(--theme-authority);
-    --accent-marine-glow: var(--theme-authority-glow);
-}
-
-body[data-persona="scientist"] {
-    --accent-marine: var(--theme-scientist);
-    --accent-marine-glow: var(--theme-scientist-glow);
+    --accent-marine: #3A6B8C;
+    --accent-marine-glow: rgba(58, 107, 140, 0.3);
 }
 
 :root {
