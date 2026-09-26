@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sectorsPane = map.getPane('sectorsPane');
     map.createPane('riskFieldPane');
     map.getPane('riskFieldPane').style.zIndex = 450;
+    map.getPane('riskFieldPane').style.filter = 'blur(12px)';
     const riskFieldPane = map.getPane('riskFieldPane');
 
     const legendBox = document.getElementById('legend-box');
@@ -257,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         const rect = L.rectangle(bounds, {
                             color: strokeColor,
-                            weight: 1,
+                            weight: 0,
                             fillColor: fillColor,
                             fillOpacity: 1,
                             pane: 'riskFieldPane'
