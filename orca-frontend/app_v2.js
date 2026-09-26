@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // FeatureGroups for each data type
     const eezGroup = L.layerGroup().addTo(map);
     const sectorsGroup = L.layerGroup().addTo(map);
+    const riskFieldLayer = L.layerGroup();
     const pfzGroup = L.featureGroup().addTo(map);
     const weatherGroup = L.featureGroup().addTo(map);
     const routeGroup = L.featureGroup().addTo(map);
