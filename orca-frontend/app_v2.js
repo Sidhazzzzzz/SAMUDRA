@@ -154,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleChl = document.getElementById('toggle-chl');
     const toggleEez = document.getElementById('toggle-eez');
     const toggleSectors = document.getElementById('toggle-sectors');
+    const toggleRiskField = document.getElementById('toggle-risk-field');
 
     const pfzPane = map.getPane('pfzPane');
     const weatherPane = map.getPane('weatherPane');
@@ -162,6 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const chlPane = map.getPane('chlPane');
     const eezPane = map.getPane('eezPane');
     const sectorsPane = map.getPane('sectorsPane');
+    map.createPane('riskFieldPane');
+    map.getPane('riskFieldPane').style.zIndex = 390;
+    const riskFieldPane = map.getPane('riskFieldPane');
 
     const legendBox = document.getElementById('legend-box');
     const legendImg = document.getElementById('legend-img');
@@ -206,7 +210,99 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleWeather.addEventListener('change', syncLayerVisibility);
     toggleRoute.addEventListener('change', syncLayerVisibility);
     toggleEez.addEventListener('change', syncLayerVisibility);
+    
+    toggleRiskField.addEventListener('change', async () => {
+        if (toggleRiskField.checked) {
+            riskFieldLayer.addTo(map);
+            
+            // Show loading state...
+            riskFieldLayer.clearLayers();
+            const loadingHtml = '<div style="background: var(--bg-navy); padding: 5px 10px; border-radius: 4px; color: white;">Loading Risk Field...</div>';
+            const loadingMarker = L.marker(map.getCenter(), {
+                icon: L.divIcon({className: 'loading-icon', html: loadingHtml, iconSize: [120, 30]})
+            }).addTo(riskFieldLayer);
+
+            try {
+                let url = 'http://127.0.0.1:8000/risk-field';
+                if (window.lastState && window.lastState.origin) {
+                    url += `?origin_lat=${window.lastState.origin.lat}&origin_lon=${window.lastState.origin.lon}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                riskFieldLayer.clearLayers();
+                
+                if (data.status === 'success' && data.grid) {
+                    data.grid.forEach(cell => {
+                        const bounds = [
+                            [cell.lat, cell.lon],
+                            [cell.lat + 0.025, cell.lon + 0.025]
+                        ];
+                        
+                        let fillColor = 'rgba(0, 191, 165, 0.1)'; // Calm green/blue
+                        let strokeColor = 'rgba(255, 255, 255, 0.02)';
+                        
+                        if (!cell.is_traversable) {
+                            fillColor = 'rgba(0, 0, 0, 0.3)'; // Land/Shallows
+                            strokeColor = 'transparent';
+                        } else if (cell.static_imbl_penalty > 0) {
+                            fillColor = 'rgba(255, 107, 107, 0.6)'; // Hazard red
+                        } else if (cell.accumulated && cell.accumulated.imbl_penalty > 0) {
+                            fillColor = 'rgba(255, 107, 107, 0.4)'; // Hazard red (path)
+                        } else if (cell.accumulated) {
+                            fillColor = 'rgba(0, 191, 165, 0.3)'; // Explored water
+                        }
+                        
+                        const rect = L.rectangle(bounds, {
+                            color: strokeColor,
+                            weight: 1,
+                            fillColor: fillColor,
+                            fillOpacity: 1,
+                            pane: 'riskFieldPane'
+                        });
+                        
+                        // Popup logic
+                        let popupContent = `<div style="font-family: var(--font-main); font-size: 13px;">`;
+                        popupContent += `<strong>Cell:</strong> ${cell.lat.toFixed(4)}, ${cell.lon.toFixed(4)}<br/>`;
+                        popupContent += `<strong>Depth:</strong> ${cell.depth ? cell.depth + 'm' : 'Unknown'}<br/>`;
+                        
+                        if (!cell.is_traversable) {
+                            popupContent += `<span style="color: var(--alert-danger)">Not Traversable (Land/Shallows)</span>`;
+                        } else {
+                            if (cell.static_imbl_penalty > 0) {
+                                popupContent += `<span style="color: var(--alert-danger)">IMBL Penalty: ${cell.static_imbl_penalty}</span><br/>`;
+                            } else {
+                                popupContent += `<span style="color: var(--alert-safe)">IMBL Penalty: 0</span><br/>`;
+                            }
+                            
+                            if (cell.accumulated) {
+                                popupContent += `<hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.2); margin: 5px 0;" />`;
+                                popupContent += `<strong>Total Accumulated Cost:</strong> ${cell.accumulated.total.toFixed(1)}<br/>`;
+                                popupContent += `• Distance: ${cell.accumulated.distance.toFixed(1)} km<br/>`;
+                                popupContent += `• Acc. Penalty: ${cell.accumulated.imbl_penalty.toFixed(1)}`;
+                            }
+                        }
+                        popupContent += `</div>`;
+                        
+                        rect.bindPopup(popupContent, {
+                            className: 'marine-popup'
+                        });
+                        
+                        rect.addTo(riskFieldLayer);
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to load risk field:", error);
+                riskFieldLayer.clearLayers();
+            }
+        } else {
+            map.removeLayer(riskFieldLayer);
+        }
+    });
+
     toggleSectors.addEventListener('change', syncLayerVisibility);
+
     
     toggleSst.addEventListener('change', () => {
         if (toggleSst.checked) toggleChl.checked = false;

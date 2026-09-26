@@ -1240,3 +1240,17 @@ body {
     opacity: 1 !important;
     visibility: visible !important;
 }
+
+
+/* Risk Field Popup */
+.marine-popup .leaflet-popup-content-wrapper {
+    background: var(--bg-panel);
+    color: #fff;
+    border: 1px solid var(--accent-marine);
+    border-radius: 6px;
+}
+.marine-popup .leaflet-popup-tip {
+    background: var(--bg-panel);
+    border-top: 1px solid var(--accent-marine);
+    border-left: 1px solid var(--accent-marine);
+}
