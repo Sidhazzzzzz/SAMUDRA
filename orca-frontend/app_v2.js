@@ -1147,7 +1147,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Tooltip via title
             const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-            title.textContent = `Year: ${d.year}\nSST: ${d.mean_sst_celsius.toFixed(2)} °C`;
+            const sstVal = (d.mean_sst_celsius !== null && d.mean_sst_celsius !== undefined) ? d.mean_sst_celsius.toFixed(2) + ' °C' : 'Data unavailable';
+            title.textContent = `Year: ${d.year}\nSST: ${sstVal}`;
             dot.appendChild(title);
             
             svg.appendChild(dot);
@@ -1192,7 +1193,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     bar.setAttribute('opacity', '0.5');
                     
                     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-                    title.textContent = `Chlorophyll: ${d.mean_chlorophyll_a_mg_per_m3.toFixed(2)} mg/m³`;
+                    const chlVal = (d.mean_chlorophyll_a_mg_per_m3 !== null && d.mean_chlorophyll_a_mg_per_m3 !== undefined) ? d.mean_chlorophyll_a_mg_per_m3.toFixed(2) + ' mg/m³' : 'Data unavailable';
+                    title.textContent = `Chlorophyll: ${chlVal}`;
                     bar.appendChild(title);
                     
                     svg.insertBefore(bar, sstPath); // put bars behind line
