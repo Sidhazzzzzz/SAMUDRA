@@ -273,7 +273,65 @@ class NavGrid:
 
         return base + barrier
 
+
+    def generate_risk_field(self, start_cell: tuple[int, int] | None = None) -> list[dict]:
+        field = []
+        g_scores = {}
+        
+        if start_cell is not None:
+            # Dijkstra relaxation
+            counter = 0
+            open_set = [(0.0, counter, start_cell)]
+            g_scores = {start_cell: {"total": 0.0, "distance": 0.0, "imbl_penalty": 0.0}}
+            
+            while open_set:
+                _, _, current = heapq.heappop(open_set)
+                
+                for neighbor in self.get_neighbors(*current):
+                    lat1, lon1 = self.get_coords(*current)
+                    lat2, lon2 = self.get_coords(*neighbor)
+                    dist = haversine_km(lat1, lon1, lat2, lon2)
+                    imbl = imbl_barrier_cost(lat2, lon2)
+                    
+                    cost = dist + imbl
+                    if cost == float('inf'):
+                        continue
+                        
+                    new_dist = g_scores[current]["distance"] + dist
+                    new_imbl = g_scores[current]["imbl_penalty"] + imbl
+                    new_total = g_scores[current]["total"] + cost
+                    
+                    if new_total < g_scores.get(neighbor, {}).get("total", float('inf')):
+                        g_scores[neighbor] = {"total": new_total, "distance": new_dist, "imbl_penalty": new_imbl}
+                        heapq.heappush(open_set, (new_total, counter, neighbor))
+                        counter += 1
+
+        for r in range(self.nrows):
+            for c in range(self.ncols):
+                lat, lon = self.get_coords(r, c)
+                traversable = self.is_traversable(r, c)
+                depth = self.elevations.get(f"{lat},{lon}")
+                static_imbl = imbl_barrier_cost(lat, lon)
+                
+                cell_data = {
+                    "lat": lat,
+                    "lon": lon,
+                    "is_traversable": traversable,
+                    "depth": depth,
+                    "static_imbl_penalty": None if static_imbl == float('inf') else static_imbl
+                }
+                
+                if (r, c) in g_scores:
+                    cell_data["accumulated"] = g_scores[(r, c)]
+                else:
+                    cell_data["accumulated"] = None
+                    
+                field.append(cell_data)
+                
+        return field
+
     @property
+
     def grid_stats(self) -> dict[str, int]:
         total = self.nrows * self.ncols
         return {
@@ -485,13 +543,14 @@ def compute_route(
     waypoints = []
     for idx, (r, c) in enumerate(path):
         lat, lon = grid.get_coords(r, c)
+        depth = grid.elevations.get(f"{lat},{lon}")
         if idx == 0:
             label = "Departure (snapped)"
         elif idx == len(path) - 1:
             label = "Arrival (snapped)"
         else:
             label = f"Waypoint {idx}"
-        waypoints.append({"lat": lat, "lon": lon, "label": label})
+        waypoints.append({"lat": lat, "lon": lon, "label": label, "depth": depth})
 
     distance_nm = total_km / KM_PER_NAUTICAL_MILE
     speed_kmh = vessel_speed_knots * KM_PER_NAUTICAL_MILE

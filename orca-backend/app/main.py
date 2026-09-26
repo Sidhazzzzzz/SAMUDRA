@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -59,6 +59,17 @@ async def query(body: QueryRequest) -> RouteRequestState:
 async def export_pdf(body: dict):
     pdf_bytes = generate_pdf_advisory(body)
     return Response(content=pdf_bytes, media_type="application/pdf")
+
+
+@app.get("/risk-field")
+def get_risk_field(origin_lat: float | None = Query(None), origin_lon: float | None = Query(None)):
+    from app.agents.routing_engine import _get_nav_grid
+    grid = _get_nav_grid()
+    start_cell = None
+    if origin_lat is not None and origin_lon is not None:
+        start_cell = grid.snap_to_nearest_valid(origin_lat, origin_lon)
+    field = grid.generate_risk_field(start_cell)
+    return {"status": "success", "grid": field}
 
 # Coastal Authority Endpoints
 
