@@ -286,7 +286,7 @@ _NARRATION_SYSTEM = (
     "   or add any numeric or geospatial data not present in the input. Explicitly forbidden: mentioning fish species or confidence percentages (this data does not exist in the real source).\n"\
     "4. If mpa_caution is true, clearly mention the route intersects the provided MPA/Sector name, using only the provided name without inventing regulatory language.\n"
     "5. When describing PFZ advisories, ALWAYS use the bearing/distance/depth guidance from the named landing centre provided in the data.\n"
-    "6. Include real SST and Chlorophyll values when present ('sea surface temperature X°C, chlorophyll Y mg/m³ near [location]') without fabricating a value when the fetch returns null — in that case simply omit the SST/chlorophyll line.\n"
+    "6. If ecosystem trend data is partial (e.g. SST is present but Chlorophyll is unavailable/null), confidently report the real SST trend and explicitly state: 'Chlorophyll data is currently unavailable (NOAA ERDDAP unreachable)'. Do NOT suppress the valid SST data just because Chlorophyll failed.\n"
     "7. If a route was requested but no waypoints were returned, explicitly state that no valid or safe route could be found.\n"
     "8. Use simple language a non-technical mariner can understand.\n"
     "8. Keep the response under 200 words.\n"

@@ -53,96 +53,149 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
     lat_min, lat_max = 9.0, 9.5
     lon_min, lon_max = 79.0, 79.8
     
+    yearly_data = []
+    
+    # 1. Fetch SST from Open-Meteo Marine API
+    sst_source = "Open-Meteo Marine API"
     try:
-        yearly_data = []
-        endpoints = ["coastwatch.pfeg.noaa.gov", "upwell.pfeg.noaa.gov", "polarwatch.noaa.gov"]
-        successful_endpoint = None
-        last_exception = None
-        
+        with httpx.Client(timeout=10.0) as client:
+            for i in range(years):
+                yr = current_year - years + 1 + i
+                start_date = f"{yr}-12-01"
+                end_date = f"{yr}-12-31"
+                
+                om_url = "https://marine-api.open-meteo.com/v1/marine"
+                om_params = {
+                    "latitude": (lat_min + lat_max) / 2.0,
+                    "longitude": (lon_min + lon_max) / 2.0,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "hourly": "sea_surface_temperature",
+                    "timezone": "UTC"
+                }
+                
+                resp = client.get(om_url, params=om_params)
+                resp.raise_for_status()
+                om_data = resp.json()
+                
+                # Average the hourly SST for the month
+                temps = [t for t in om_data.get("hourly", {}).get("sea_surface_temperature", []) if t is not None]
+                mean_sst = round(sum(temps) / len(temps), 2) if temps else None
+                
+                yearly_data.append({
+                    "year": yr,
+                    "mean_sst_celsius": mean_sst,
+                    "mean_chlorophyll_a_mg_per_m3": None # Placeholder, filled below
+                })
+    except Exception as e:
+        logger.error("Open-Meteo SST fetch failed: %s", e)
+        sst_source = "Unavailable (Open-Meteo unreachable)"
+        # If SST fails, populate with None
+        for i in range(years):
+            yr = current_year - years + 1 + i
+            yearly_data.append({
+                "year": yr,
+                "mean_sst_celsius": None,
+                "mean_chlorophyll_a_mg_per_m3": None
+            })
+
+    # 2. Fetch Chlorophyll from NOAA ERDDAP
+    chl_source = "Unavailable (NOAA ERDDAP unreachable)"
+    endpoints = ["coastwatch.pfeg.noaa.gov", "upwell.pfeg.noaa.gov", "polarwatch.noaa.gov"]
+    chl_success = False
+    
+    try:
         with httpx.Client(timeout=15.0) as client:
             for endpoint in endpoints:
                 try:
-                    logger.info("Attempting ERDDAP fetch via %s", endpoint)
-                    yearly_data_attempt = []
+                    logger.info("Attempting ERDDAP CHL fetch via %s", endpoint)
                     
                     for i in range(years):
-                        yr = current_year - years + 1 + i
+                        yr = yearly_data[i]["year"]
                         time_str = f"{yr}-01-16T12:00:00Z"
                         
-                        # Fetch Chlorophyll-a
                         chl_url = f"https://{endpoint}/erddap/griddap/erdMH1chlamday.json?chlorophyll[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
                         chl_resp = client.get(chl_url)
                         chl_resp.raise_for_status()
                         chl_rows = chl_resp.json().get("table", {}).get("rows", [])
                         valid_chl = [r[-1] for r in chl_rows if r[-1] is not None]
-                        mean_chl = round(sum(valid_chl) / len(valid_chl), 3) if valid_chl else 0.85
+                        mean_chl = round(sum(valid_chl) / len(valid_chl), 3) if valid_chl else None
                         
-                        # Fetch SST
-                        sst_url = f"https://{endpoint}/erddap/griddap/jplMURSST41mday.json?sst[({time_str}):1:({time_str})][({lat_min}):1:({lat_max})][({lon_min}):1:({lon_max})]"
-                        sst_resp = client.get(sst_url)
-                        sst_resp.raise_for_status()
-                        sst_rows = sst_resp.json().get("table", {}).get("rows", [])
-                        valid_sst = [r[-1] for r in sst_rows if r[-1] is not None]
-                        mean_sst = round(sum(valid_sst) / len(valid_sst), 2) if valid_sst else 28.2
+                        yearly_data[i]["mean_chlorophyll_a_mg_per_m3"] = mean_chl
                         
-                        yearly_data_attempt.append({
-                            "year": yr,
-                            "mean_sst_celsius": mean_sst,
-                            "mean_chlorophyll_a_mg_per_m3": mean_chl,
-                        })
-                    
-                    # If we made it here without exception, this endpoint succeeded
-                    yearly_data = yearly_data_attempt
-                    successful_endpoint = endpoint
-                    break  # Break out of the endpoint loop
-                    
+                    chl_source = f"NOAA ERDDAP via {endpoint} (erdMH1chlamday)"
+                    chl_success = True
+                    break # Success, break endpoint loop
                 except Exception as e:
-                    logger.warning("Endpoint %s failed: %s", endpoint, e)
-                    last_exception = e
-                    continue # Try next endpoint
+                    logger.warning("Endpoint %s failed for CHL: %s", endpoint, e)
+                    continue
 
-        if not successful_endpoint:
-            raise last_exception or Exception("All ERDDAP endpoints failed")
+        if not chl_success:
+            raise Exception("All ERDDAP endpoints failed")
+            
+    except Exception as exc:
+        logger.error("ERDDAP API multi-endpoint CHL fetch failed: %s", exc)
+        # Attempt fallback for Chl if it fails
+        try:
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            fallback_path = os.path.join(base_dir, 'data', 'fallback', 'ecosystem_fallback_snapshot.json')
+            if os.path.exists(fallback_path):
+                with open(fallback_path, 'r') as f:
+                    fb = json.load(f)
+                now_str = now.strftime('%Y-%m-%d')
+                chl_source = f"LOCAL_FALLBACK_SNAPSHOT (live ERDDAP failed on {now_str}, returning last genuine fetch)"
+                # Merge fallback CHL into yearly_data
+                for i, fb_yd in enumerate(fb.get("yearly_data", [])):
+                    if i < len(yearly_data):
+                        yearly_data[i]["mean_chlorophyll_a_mg_per_m3"] = fb_yd.get("mean_chlorophyll_a_mg_per_m3")
+        except Exception as fallback_e:
+            logger.error("Ecosystem fallback snapshot failed to load for CHL: %s", fallback_e)
 
-        # Compute trend direction from first to last data point
-        first_chl = yearly_data[0]["mean_chlorophyll_a_mg_per_m3"]
-        last_chl = yearly_data[-1]["mean_chlorophyll_a_mg_per_m3"]
+    # Compute trend direction from first to last data point (handling Nones safely)
+    trend_dict = {}
+    
+    # CHL Trend
+    first_chl = yearly_data[0].get("mean_chlorophyll_a_mg_per_m3")
+    last_chl = yearly_data[-1].get("mean_chlorophyll_a_mg_per_m3")
+    if first_chl is not None and last_chl is not None and first_chl != 0:
         pct_change = round(((last_chl - first_chl) / first_chl) * 100, 1)
-
         if pct_change < -5:
-            trend = "declining"
+            trend_dict["chlorophyll_a_direction"] = "declining"
         elif pct_change > 5:
-            trend = "improving"
+            trend_dict["chlorophyll_a_direction"] = "improving"
         else:
-            trend = "stable"
+            trend_dict["chlorophyll_a_direction"] = "stable"
+        trend_dict["chlorophyll_a_pct_change"] = pct_change
+    else:
+        trend_dict["chlorophyll_a_direction"] = "unavailable"
+        trend_dict["chlorophyll_a_pct_change"] = None
 
-        first_sst = yearly_data[0]["mean_sst_celsius"]
-        last_sst = yearly_data[-1]["mean_sst_celsius"]
+    # SST Trend
+    first_sst = yearly_data[0].get("mean_sst_celsius")
+    last_sst = yearly_data[-1].get("mean_sst_celsius")
+    if first_sst is not None and last_sst is not None and first_sst != 0:
         sst_pct_change = round(((last_sst - first_sst) / first_sst) * 100, 1)
+        trend_dict["sst_direction"] = "rising" if sst_pct_change > 0 else "stable"
+        trend_dict["sst_pct_change"] = sst_pct_change
+    else:
+        trend_dict["sst_direction"] = "unavailable"
+        trend_dict["sst_pct_change"] = None
 
-        result = {
-            "source": f"NOAA ERDDAP via {successful_endpoint} (MODIS-Aqua chl, JPL MUR sst)",
-            "region": region,
-            "analysis_period_years": years,
-            "yearly_data": yearly_data,
-            "trend": {
-                "chlorophyll_a_direction": trend,
-                "chlorophyll_a_pct_change": pct_change,
-                "sst_direction": "rising" if sst_pct_change > 0 else "stable",
-                "sst_pct_change": sst_pct_change,
-            },
-            "interpretation": (
-                f"Over the past {years} years, chlorophyll-a concentration in "
-                f"{region} has {trend} by {abs(pct_change)}%, while SST has "
-                f"{'risen' if sst_pct_change > 0 else 'remained stable'} by "
-                f"{abs(sst_pct_change)}%. Declining chlorophyll-a is associated "
-                f"with reduced primary productivity and may correlate with "
-                f"decreasing fish catch rates."
-            ),
-            "fetched_at": now.isoformat(),
-        }
+    result = {
+        "source": {
+            "sst": sst_source,
+            "chlorophyll": chl_source
+        },
+        "region": region,
+        "analysis_period_years": years,
+        "yearly_data": yearly_data,
+        "trend": trend_dict,
+        "interpretation": "Refer to explicit trend values in generated LLM narration.",
+        "fetched_at": now.isoformat(),
+    }
 
-        # Save to fallback snapshot if successful
+    # Save to fallback snapshot if ERDDAP was successful (to preserve a genuine snapshot)
+    if chl_success:
         try:
             base_dir = os.path.dirname(os.path.dirname(__file__))
             fallback_dir = os.path.join(base_dir, 'data', 'fallback')
@@ -153,24 +206,5 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
         except Exception as e:
             logger.error("Failed to save ecosystem snapshot: %s", e)
 
-        return result
-
-    except Exception as exc:
-        logger.error("ERDDAP API multi-endpoint fetch failed: %s", exc)
-        try:
-            base_dir = os.path.dirname(os.path.dirname(__file__))
-            fallback_path = os.path.join(base_dir, 'data', 'fallback', 'ecosystem_fallback_snapshot.json')
-            if not os.path.exists(fallback_path):
-                raise FileNotFoundError("No genuine fallback snapshot exists yet.")
-            with open(fallback_path, 'r') as f:
-                fb = json.load(f)
-            now_str = now.strftime('%Y-%m-%d')
-            fb['source'] = f"LOCAL_FALLBACK_SNAPSHOT (live fetch failed on {now_str}, returning last genuine fetch)"
-            return fb
-        except Exception as fallback_e:
-            logger.error(f"Ecosystem fallback snapshot failed to load: {fallback_e}")
-            return {
-                "source": "NOAA CoastWatch ERDDAP",
-                "error": f"Live fetch failed ({type(exc).__name__}) and no genuine fallback data is available."
-            }
+    return result
 
