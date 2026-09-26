@@ -782,8 +782,11 @@ body {
     background: transparent;
     color: #9AA0A6;
     border: none;
+    border-radius: 20px;
     padding: 8px 4px;
     font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'Inter', 'Fira Sans', sans-serif;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     cursor: pointer;
