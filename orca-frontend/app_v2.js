@@ -1034,6 +1034,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             pre.classList.add('hidden');
         }
+    });
+
     // =========================================================================
     // SCIENTIST MODE LOGIC
     // =========================================================================
@@ -1296,5 +1298,4 @@ document.addEventListener('DOMContentLoaded', () => {
         depthChartWrapper.appendChild(svg);
     };
 
-});
 });
