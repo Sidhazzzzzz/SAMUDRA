@@ -775,14 +775,15 @@ body {
 }
 .persona-btn {
     flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     background: transparent;
     color: #9AA0A6;
     border: none;
-    padding: 8px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-family: 'Inter', 'Fira Sans', sans-serif;
+    padding: 8px 4px;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     cursor: pointer;
@@ -1144,9 +1145,11 @@ body {
 
 /* Vessel Marker Styles */
 .vessel-icon {
-    font-size: 14px;
-    text-align: center;
-    line-height: 20px;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: #5C8CA3;
     color: white;
     border-radius: 50%;
