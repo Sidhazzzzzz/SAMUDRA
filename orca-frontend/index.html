@@ -56,6 +56,7 @@
                     <button type="button" class="persona-btn active" data-mode="fishing">Fisherman</button>
                     <button type="button" class="persona-btn" data-mode="commercial">Commercial</button>
                     <button type="button" class="persona-btn" data-mode="authority">Authority</button>
+                    <button type="button" class="persona-btn" data-mode="scientist">Scientist</button>
                 </div>
             </div>
 
@@ -183,6 +184,53 @@
                         </div>
                     </div>
                 </div>
+            </div> <!-- End authority-mode-view -->
+
+            <div id="scientist-mode-view" class="hidden" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                <div class="sidebar-status-card" style="border-left: 3px solid #00BFA5;">
+                    <div class="status-row">
+                        <div class="status-label" style="color: #00BFA5; font-weight: 700;">ECOSYSTEM ANALYSIS</div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
+                        MACRO TRENDS & OCEANOGRAPHIC DATA
+                    </div>
+                </div>
+
+                <div id="scientist-results" style="padding: 15px; overflow-y: auto; flex: 1;">
+                    <div id="scientist-welcome-text" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;">
+                        Ready for analysis. Query regional trends and environmental metrics.
+                    </div>
+                    <div id="scientist-analysis-content" class="hidden" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px;"></div>
+                    
+                    <div id="trend-chart-container" class="hidden" style="margin-bottom: 20px;">
+                        <h3 style="font-size: 0.85rem; margin-bottom: 10px; color: var(--accent-marine);">YEARLY TRENDS</h3>
+                        <div style="background: var(--bg-navy); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); height: 180px; position: relative;" id="trend-chart-wrapper">
+                            <!-- SVG will be injected here -->
+                        </div>
+                    </div>
+
+                    <div id="depth-chart-container" style="margin-bottom: 20px;">
+                        <h3 style="font-size: 0.85rem; margin-bottom: 10px; color: var(--accent-marine);">DEPTH CROSS-SECTION (LATEST ROUTE)</h3>
+                        <div style="background: var(--bg-navy); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); height: 120px; position: relative;" id="depth-chart-wrapper">
+                            <div id="depth-chart-empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-muted); font-size: 0.8rem; text-align: center; width: 100%;">
+                                Compute a route first to see its depth profile
+                            </div>
+                            <!-- SVG will be injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div id="scientist-loading-indicator" class="loading-indicator hidden">
+                        <span class="spinner"></span> 
+                        Analyzing ecosystem data...
+                    </div>
+                    <form id="scientist-form">
+                        <input type="text" id="scientist-input" placeholder="Ask about ecosystem trends, e.g. 'why has fish productivity declined near Rameswaram'" autocomplete="off" required>
+                        <button type="submit" id="scientist-send-btn" class="primary-btn" style="background: #00BFA5; border-color: #00BFA5;">QUERY</button>
+                    </form>
+                </div>
+            </div> <!-- End scientist-mode-view -->
         </aside>
     </div>
 

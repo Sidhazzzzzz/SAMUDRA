@@ -238,12 +238,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const chatModeView = document.getElementById('chat-mode-view');
                     const authModeView = document.getElementById('authority-mode-view');
+                    const scientistModeView = document.getElementById('scientist-mode-view');
 
                     if (currentMode === "authority") {
                         title.textContent = "COASTAL AUTHORITY";
                         if (chatModeView) chatModeView.classList.add('hidden');
+                        if (scientistModeView) scientistModeView.classList.add('hidden');
                         if (authModeView) authModeView.classList.remove('hidden');
                         initAuthorityMode();
+                    } else if (currentMode === "scientist") {
+                        title.textContent = "SCIENTIST / RESEARCH";
+                        if (chatModeView) chatModeView.classList.add('hidden');
+                        if (authModeView) authModeView.classList.add('hidden');
+                        if (scientistModeView) scientistModeView.classList.remove('hidden');
+                        exitAuthorityMode();
+                        renderDepthCrossSection(); // Render the depth chart if a route exists
                     } else {
                         if (currentMode === "commercial") {
                             title.textContent = "COMMERCIAL NAVIGATOR";
@@ -254,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (chatModeView) chatModeView.classList.remove('hidden');
                         if (authModeView) authModeView.classList.add('hidden');
+                        if (scientistModeView) scientistModeView.classList.add('hidden');
                         exitAuthorityMode();
                     }
                 } catch(e) {
@@ -1024,6 +1034,267 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             pre.classList.add('hidden');
         }
+    // =========================================================================
+    // SCIENTIST MODE LOGIC
+    // =========================================================================
+    const scientistForm = document.getElementById('scientist-form');
+    const scientistInput = document.getElementById('scientist-input');
+    const scientistLoading = document.getElementById('scientist-loading-indicator');
+    const scientistSendBtn = document.getElementById('scientist-send-btn');
+    const scientistAnalysisContent = document.getElementById('scientist-analysis-content');
+    const scientistWelcomeText = document.getElementById('scientist-welcome-text');
+    const trendChartContainer = document.getElementById('trend-chart-container');
+    const trendChartWrapper = document.getElementById('trend-chart-wrapper');
+    const depthChartWrapper = document.getElementById('depth-chart-wrapper');
+    const depthChartEmptyState = document.getElementById('depth-chart-empty-state');
+
+    scientistForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        let query = scientistInput.value.trim();
+        if (!query) return;
+
+        scientistInput.value = '';
+        
+        scientistLoading.classList.remove('hidden');
+        scientistSendBtn.disabled = true;
+        scientistInput.disabled = true;
+        
+        scientistWelcomeText.classList.add('hidden');
+        scientistAnalysisContent.classList.add('hidden');
+        trendChartContainer.classList.add('hidden');
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_query: query, mode: 'scientist' })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Backend Error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            // Render text analysis
+            scientistAnalysisContent.innerHTML = marked.parse(data.final_advisory_text || data.abort_reason || 'No text provided.');
+            scientistAnalysisContent.classList.remove('hidden');
+
+            // Render Trends Chart
+            if (data.yearly_data && data.yearly_data.length > 0) {
+                renderTrendChart(data.yearly_data);
+                trendChartContainer.classList.remove('hidden');
+            }
+
+        } catch (error) {
+            console.error(error);
+            scientistAnalysisContent.innerHTML = `<span class="error-msg">${error.message}</span>`;
+            scientistAnalysisContent.classList.remove('hidden');
+        } finally {
+            scientistLoading.classList.add('hidden');
+            scientistSendBtn.disabled = false;
+            scientistInput.disabled = false;
+            scientistInput.focus();
+        }
     });
 
+    function renderTrendChart(yearlyData) {
+        trendChartWrapper.innerHTML = '';
+        const width = trendChartWrapper.clientWidth - 20;
+        const height = 160;
+        const padding = 30;
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.style.overflow = 'visible';
+
+        const years = yearlyData.map(d => d.year);
+        const sstVals = yearlyData.map(d => d.sst);
+        
+        const hasChl = yearlyData.some(d => d.chlorophyll !== null);
+        
+        const minSst = Math.min(...sstVals) - 0.5;
+        const maxSst = Math.max(...sstVals) + 0.5;
+
+        // X Axis
+        const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        xAxis.setAttribute('x1', padding);
+        xAxis.setAttribute('y1', height - padding);
+        xAxis.setAttribute('x2', width - padding);
+        xAxis.setAttribute('y2', height - padding);
+        xAxis.setAttribute('stroke', 'rgba(255,255,255,0.2)');
+        svg.appendChild(xAxis);
+
+        // Draw Line for SST
+        let sstPathD = '';
+        yearlyData.forEach((d, i) => {
+            const x = padding + (i / (yearlyData.length - 1)) * (width - 2 * padding);
+            const y = height - padding - ((d.sst - minSst) / (maxSst - minSst)) * (height - 2 * padding);
+            
+            if (i === 0) sstPathD += `M ${x} ${y} `;
+            else sstPathD += `L ${x} ${y} `;
+            
+            // Dots
+            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dot.setAttribute('cx', x);
+            dot.setAttribute('cy', y);
+            dot.setAttribute('r', 3);
+            dot.setAttribute('fill', '#FF6B6B');
+            
+            // Tooltip via title
+            const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+            title.textContent = `Year: ${d.year}\nSST: ${d.sst.toFixed(2)} °C`;
+            dot.appendChild(title);
+            
+            svg.appendChild(dot);
+            
+            // X labels
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', x);
+            label.setAttribute('y', height - 10);
+            label.setAttribute('fill', 'var(--text-muted)');
+            label.setAttribute('font-size', '10');
+            label.setAttribute('text-anchor', 'middle');
+            label.textContent = d.year;
+            svg.appendChild(label);
+        });
+
+        const sstPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        sstPath.setAttribute('d', sstPathD);
+        sstPath.setAttribute('stroke', '#FF6B6B');
+        sstPath.setAttribute('stroke-width', '2');
+        sstPath.setAttribute('fill', 'none');
+        svg.appendChild(sstPath);
+        
+        // Render Chl bars or 'unavailable' text
+        if (hasChl) {
+            // Find max/min chl to scale bars
+            const chlVals = yearlyData.map(d => d.chlorophyll).filter(c => c !== null);
+            const maxChl = Math.max(...chlVals) || 1;
+            
+            yearlyData.forEach((d, i) => {
+                const x = padding + (i / (yearlyData.length - 1)) * (width - 2 * padding);
+                
+                if (d.chlorophyll !== null) {
+                    const barHeight = (d.chlorophyll / maxChl) * (height - 2 * padding);
+                    const barY = height - padding - barHeight;
+                    
+                    const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    bar.setAttribute('x', x - 4);
+                    bar.setAttribute('y', barY);
+                    bar.setAttribute('width', 8);
+                    bar.setAttribute('height', barHeight);
+                    bar.setAttribute('fill', '#00BFA5');
+                    bar.setAttribute('opacity', '0.5');
+                    
+                    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                    title.textContent = `Chlorophyll: ${d.chlorophyll.toFixed(2)} mg/m³`;
+                    bar.appendChild(title);
+                    
+                    svg.insertBefore(bar, sstPath); // put bars behind line
+                } else {
+                    // Data unavailable indicator
+                    const unavailableText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    unavailableText.setAttribute('x', x);
+                    unavailableText.setAttribute('y', height - padding - 10);
+                    unavailableText.setAttribute('fill', 'var(--text-muted)');
+                    unavailableText.setAttribute('font-size', '9');
+                    unavailableText.setAttribute('text-anchor', 'middle');
+                    unavailableText.setAttribute('transform', `rotate(-45 ${x} ${height - padding - 10})`);
+                    unavailableText.textContent = 'NO DATA';
+                    svg.appendChild(unavailableText);
+                }
+            });
+        }
+
+        // Legend
+        const legendSst = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        legendSst.setAttribute('x', padding);
+        legendSst.setAttribute('y', 15);
+        legendSst.setAttribute('fill', '#FF6B6B');
+        legendSst.setAttribute('font-size', '10');
+        legendSst.textContent = '● SST (°C)';
+        svg.appendChild(legendSst);
+        
+        if (hasChl) {
+            const legendChl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            legendChl.setAttribute('x', padding + 70);
+            legendChl.setAttribute('y', 15);
+            legendChl.setAttribute('fill', '#00BFA5');
+            legendChl.setAttribute('font-size', '10');
+            legendChl.textContent = '■ Chlorophyll';
+            svg.appendChild(legendChl);
+        }
+
+        trendChartWrapper.appendChild(svg);
+    }
+
+    // Export function to global scope to be called on persona switch
+    window.renderDepthCrossSection = function() {
+        if (!window.lastState || !window.lastState.optimized_route || window.lastState.optimized_route.length === 0) {
+            depthChartWrapper.innerHTML = '';
+            depthChartWrapper.appendChild(depthChartEmptyState);
+            return;
+        }
+        
+        const route = window.lastState.optimized_route;
+        // Assume 'depth' exists on waypoints. If not, fallback to 0 but it should exist based on prompt.
+        const hasDepth = route.some(wp => wp.depth !== undefined && wp.depth !== null);
+        
+        if (!hasDepth) {
+            depthChartWrapper.innerHTML = '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-muted); font-size: 0.8rem; text-align: center; width: 100%;">No bathymetry data available for this route.</div>';
+            return;
+        }
+
+        depthChartWrapper.innerHTML = '';
+        const width = depthChartWrapper.clientWidth - 20;
+        const height = 100;
+        const padding = 10;
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.style.overflow = 'visible';
+
+        const depths = route.map(wp => wp.depth || 0); // depths are usually negative or positive depending on standard, assume negative implies deeper
+        // Usually bathymetry depth is negative below sea level, or positive for depth.
+        // Let's assume it's positive depth for visualization, or we just map min to max.
+        const maxDepth = Math.max(...depths.map(Math.abs)); 
+        
+        let pathD = `M ${padding} ${padding} `;
+        
+        route.forEach((wp, i) => {
+            const x = padding + (i / (route.length - 1)) * (width - 2 * padding);
+            // Invert y: deeper means further down (larger y)
+            const y = padding + (Math.abs(wp.depth || 0) / (maxDepth || 1)) * (height - 2 * padding);
+            pathD += `L ${x} ${y} `;
+        });
+        
+        // Close shape for fill
+        pathD += `L ${width - padding} ${padding} Z`;
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pathD);
+        path.setAttribute('fill', 'rgba(0, 191, 165, 0.2)');
+        path.setAttribute('stroke', '#00BFA5');
+        path.setAttribute('stroke-width', '1.5');
+        svg.appendChild(path);
+        
+        // Sea level line
+        const seaLevel = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        seaLevel.setAttribute('x1', padding);
+        seaLevel.setAttribute('y1', padding);
+        seaLevel.setAttribute('x2', width - padding);
+        seaLevel.setAttribute('y2', padding);
+        seaLevel.setAttribute('stroke', '#5C8CA3');
+        seaLevel.setAttribute('stroke-dasharray', '4 4');
+        svg.appendChild(seaLevel);
+
+        depthChartWrapper.appendChild(svg);
+    };
+
+});
 });
