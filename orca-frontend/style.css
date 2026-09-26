@@ -234,7 +234,7 @@ body {
     to { transform: rotate(360deg); }
 }
 
-#chat-form {
+#chat-form, #scientist-form {
     display: flex;
     gap: 10px;
 }
@@ -668,7 +668,7 @@ body {
    ======================================================== */
 
 /* 1. Chat Form & Input */
-#chat-input {
+#chat-input, #scientist-input {
     flex: 1;
     background-color: #0B101E;
     color: #FFFFFF;
@@ -680,10 +680,10 @@ body {
     outline: none;
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
-#chat-input:hover {
+#chat-input:hover, #scientist-input:hover {
     background-color: #1C2541;
 }
-#chat-input:focus {
+#chat-input:focus, #scientist-input:focus {
     background-color: #0B101E;
     border-color: #8AB4F8;
     box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
@@ -1201,10 +1201,10 @@ body {
 }
 
 /* Focus state animation on input */
-#chat-input {
+#chat-input, #scientist-input {
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-#chat-input:focus {
+#chat-input:focus, #scientist-input:focus {
     transform: scale(1.02);
     box-shadow: 0 0 15px rgba(138, 180, 248, 0.3);
 }
@@ -1217,11 +1217,11 @@ body {
 .chat-input-area {
     flex-shrink: 0;
 }
-#chat-form {
+#chat-form, #scientist-form {
     flex-shrink: 0;
     align-items: stretch;
 }
-#chat-input {
+#chat-input, #scientist-input {
     min-height: 40px;
     flex-shrink: 1;
     width: 100%;

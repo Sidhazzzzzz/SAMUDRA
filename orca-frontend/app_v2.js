@@ -1102,9 +1102,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTrendChart(yearlyData) {
         trendChartWrapper.innerHTML = '';
-        const width = trendChartWrapper.clientWidth - 20;
-        const height = 160;
-        const padding = 30;
+        const width = 400; // Fixed viewBox width based on sidebar
+        const height = 180;
+        const padX = 45;
+        const padY = 30;
 
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('width', '100%');
@@ -1114,51 +1115,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const years = yearlyData.map(d => d.year);
         const sstVals = yearlyData.map(d => d.mean_sst_celsius);
-        
         const hasChl = yearlyData.some(d => d.mean_chlorophyll_a_mg_per_m3 !== null && d.mean_chlorophyll_a_mg_per_m3 !== undefined);
         
         const minSst = Math.min(...sstVals) - 0.5;
         const maxSst = Math.max(...sstVals) + 0.5;
 
-        // X Axis
-        const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        xAxis.setAttribute('x1', padding);
-        xAxis.setAttribute('y1', height - padding);
-        xAxis.setAttribute('x2', width - padding);
-        xAxis.setAttribute('y2', height - padding);
-        xAxis.setAttribute('stroke', 'rgba(255,255,255,0.2)');
-        svg.appendChild(xAxis);
+        // Draw grid and axes
+        for(let i=0; i<=4; i++) {
+            const y = padY + (i/4)*(height - 2*padY);
+            const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            gridLine.setAttribute('x1', padX); gridLine.setAttribute('y1', y);
+            gridLine.setAttribute('x2', width - padX); gridLine.setAttribute('y2', y);
+            gridLine.setAttribute('stroke', 'rgba(255,255,255,0.05)');
+            svg.appendChild(gridLine);
+            
+            const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            yLabel.setAttribute('x', padX - 5); yLabel.setAttribute('y', y + 3);
+            yLabel.setAttribute('fill', 'var(--text-muted)'); yLabel.setAttribute('font-size', '9');
+            yLabel.setAttribute('text-anchor', 'end');
+            yLabel.textContent = (maxSst - (i/4)*(maxSst - minSst)).toFixed(1);
+            svg.appendChild(yLabel);
+        }
 
         // Draw Line for SST
         let sstPathD = '';
         yearlyData.forEach((d, i) => {
-            const x = padding + (i / (yearlyData.length - 1)) * (width - 2 * padding);
-            const y = height - padding - ((d.mean_sst_celsius - minSst) / (maxSst - minSst)) * (height - 2 * padding);
+            const x = padX + (i / (yearlyData.length - 1 || 1)) * (width - 2 * padX);
+            const y = height - padY - ((d.mean_sst_celsius - minSst) / (maxSst - minSst)) * (height - 2 * padY);
             
             if (i === 0) sstPathD += `M ${x} ${y} `;
             else sstPathD += `L ${x} ${y} `;
             
-            // Dots
             const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            dot.setAttribute('cx', x);
-            dot.setAttribute('cy', y);
-            dot.setAttribute('r', 3);
-            dot.setAttribute('fill', '#FF6B6B');
+            dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+            dot.setAttribute('r', 4); dot.setAttribute('fill', '#FF6B6B');
             
-            // Tooltip via title
             const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
             const sstVal = (d.mean_sst_celsius !== null && d.mean_sst_celsius !== undefined) ? d.mean_sst_celsius.toFixed(2) + ' °C' : 'Data unavailable';
             title.textContent = `Year: ${d.year}\nSST: ${sstVal}`;
             dot.appendChild(title);
-            
             svg.appendChild(dot);
             
-            // X labels
             const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            label.setAttribute('x', x);
-            label.setAttribute('y', height - 10);
-            label.setAttribute('fill', 'var(--text-muted)');
-            label.setAttribute('font-size', '10');
+            label.setAttribute('x', x); label.setAttribute('y', height - padY + 15);
+            label.setAttribute('fill', 'var(--text-muted)'); label.setAttribute('font-size', '10');
             label.setAttribute('text-anchor', 'middle');
             label.textContent = d.year;
             svg.appendChild(label);
@@ -1166,68 +1166,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sstPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         sstPath.setAttribute('d', sstPathD);
-        sstPath.setAttribute('stroke', '#FF6B6B');
-        sstPath.setAttribute('stroke-width', '2');
+        sstPath.setAttribute('stroke', '#FF6B6B'); sstPath.setAttribute('stroke-width', '2');
         sstPath.setAttribute('fill', 'none');
         svg.appendChild(sstPath);
         
-        // Render Chl bars or 'unavailable' text
         if (hasChl) {
-            // Find max/min chl to scale bars
             const chlVals = yearlyData.map(d => d.mean_chlorophyll_a_mg_per_m3).filter(c => c !== null);
             const maxChl = Math.max(...chlVals) || 1;
-            
             yearlyData.forEach((d, i) => {
-                const x = padding + (i / (yearlyData.length - 1)) * (width - 2 * padding);
-                
+                const x = padX + (i / (yearlyData.length - 1 || 1)) * (width - 2 * padX);
                 if (d.mean_chlorophyll_a_mg_per_m3 !== null) {
-                    const barHeight = (d.mean_chlorophyll_a_mg_per_m3 / maxChl) * (height - 2 * padding);
-                    const barY = height - padding - barHeight;
-                    
+                    const barHeight = (d.mean_chlorophyll_a_mg_per_m3 / maxChl) * (height - 2 * padY);
+                    const barY = height - padY - barHeight;
                     const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    bar.setAttribute('x', x - 4);
-                    bar.setAttribute('y', barY);
-                    bar.setAttribute('width', 8);
-                    bar.setAttribute('height', barHeight);
-                    bar.setAttribute('fill', '#00BFA5');
-                    bar.setAttribute('opacity', '0.5');
-                    
+                    bar.setAttribute('x', x - 6); bar.setAttribute('y', barY);
+                    bar.setAttribute('width', 12); bar.setAttribute('height', barHeight);
+                    bar.setAttribute('fill', 'rgba(0, 191, 165, 0.4)');
                     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-                    const chlVal = (d.mean_chlorophyll_a_mg_per_m3 !== null && d.mean_chlorophyll_a_mg_per_m3 !== undefined) ? d.mean_chlorophyll_a_mg_per_m3.toFixed(2) + ' mg/m³' : 'Data unavailable';
+                    const chlVal = d.mean_chlorophyll_a_mg_per_m3.toFixed(2) + ' mg/m³';
                     title.textContent = `Chlorophyll: ${chlVal}`;
                     bar.appendChild(title);
-                    
-                    svg.insertBefore(bar, sstPath); // put bars behind line
+                    svg.insertBefore(bar, sstPath);
                 } else {
-                    // Data unavailable indicator
-                    const unavailableText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    unavailableText.setAttribute('x', x);
-                    unavailableText.setAttribute('y', height - padding - 10);
-                    unavailableText.setAttribute('fill', 'var(--text-muted)');
-                    unavailableText.setAttribute('font-size', '9');
-                    unavailableText.setAttribute('text-anchor', 'middle');
-                    unavailableText.setAttribute('transform', `rotate(-45 ${x} ${height - padding - 10})`);
-                    unavailableText.textContent = 'NO DATA';
-                    svg.appendChild(unavailableText);
+                    const unav = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    unav.setAttribute('x', x); unav.setAttribute('y', height - padY - 5);
+                    unav.setAttribute('fill', 'var(--text-muted)'); unav.setAttribute('font-size', '9');
+                    unav.setAttribute('text-anchor', 'middle');
+                    unav.textContent = 'NO DATA';
+                    svg.appendChild(unav);
                 }
             });
         }
 
-        // Legend
         const legendSst = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        legendSst.setAttribute('x', padding);
-        legendSst.setAttribute('y', 15);
-        legendSst.setAttribute('fill', '#FF6B6B');
-        legendSst.setAttribute('font-size', '10');
+        legendSst.setAttribute('x', padX); legendSst.setAttribute('y', 15);
+        legendSst.setAttribute('fill', '#FF6B6B'); legendSst.setAttribute('font-size', '10');
         legendSst.textContent = '● SST (°C)';
         svg.appendChild(legendSst);
         
         if (hasChl) {
             const legendChl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            legendChl.setAttribute('x', padding + 70);
-            legendChl.setAttribute('y', 15);
-            legendChl.setAttribute('fill', '#00BFA5');
-            legendChl.setAttribute('font-size', '10');
+            legendChl.setAttribute('x', padX + 80); legendChl.setAttribute('y', 15);
+            legendChl.setAttribute('fill', '#00BFA5'); legendChl.setAttribute('font-size', '10');
             legendChl.textContent = '■ Chlorophyll';
             svg.appendChild(legendChl);
         }
@@ -1244,7 +1224,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const route = window.lastState.optimized_route;
-        // Assume 'depth' exists on waypoints. If not, fallback to 0 but it should exist based on prompt.
         const hasDepth = route.some(wp => wp.depth !== undefined && wp.depth !== null);
         
         if (!hasDepth) {
@@ -1253,9 +1232,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         depthChartWrapper.innerHTML = '';
-        const width = depthChartWrapper.clientWidth - 20;
-        const height = 100;
-        const padding = 10;
+        const width = 400;
+        const height = 120;
+        const padX = 45;
+        const padY = 20;
 
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('width', '100%');
@@ -1263,36 +1243,55 @@ document.addEventListener('DOMContentLoaded', () => {
         svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
         svg.style.overflow = 'visible';
 
-        const depths = route.map(wp => wp.depth || 0); // depths are usually negative or positive depending on standard, assume negative implies deeper
-        // Usually bathymetry depth is negative below sea level, or positive for depth.
-        // Let's assume it's positive depth for visualization, or we just map min to max.
-        const maxDepth = Math.max(...depths.map(Math.abs)); 
+        const depths = route.map(wp => Math.abs(wp.depth || 0)); 
+        const maxDepth = Math.max(...depths, 5); 
         
-        let pathD = `M ${padding} ${padding} `;
+        // Y Axis Grid
+        for(let i=0; i<=2; i++) {
+            const y = padY + (i/2)*(height - 2*padY);
+            const grid = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            grid.setAttribute('x1', padX); grid.setAttribute('y1', y);
+            grid.setAttribute('x2', width - padX); grid.setAttribute('y2', y);
+            grid.setAttribute('stroke', 'rgba(255,255,255,0.05)');
+            svg.appendChild(grid);
+            
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', padX - 5); label.setAttribute('y', y + 4);
+            label.setAttribute('fill', 'var(--text-muted)'); label.setAttribute('font-size', '9');
+            label.setAttribute('text-anchor', 'end');
+            label.textContent = `-${((i/2)*maxDepth).toFixed(0)}m`;
+            svg.appendChild(label);
+        }
+
+        let pathD = `M ${padX} ${padY} `;
         
         route.forEach((wp, i) => {
-            const x = padding + (i / (route.length - 1)) * (width - 2 * padding);
-            // Invert y: deeper means further down (larger y)
-            const y = padding + (Math.abs(wp.depth || 0) / (maxDepth || 1)) * (height - 2 * padding);
+            const x = padX + (i / (route.length - 1 || 1)) * (width - 2 * padX);
+            const y = padY + (Math.abs(wp.depth || 0) / maxDepth) * (height - 2 * padY);
             pathD += `L ${x} ${y} `;
+            
+            if (i === 0 || i === route.length - 1) {
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', x); label.setAttribute('y', height - padY + 15);
+                label.setAttribute('fill', 'var(--text-muted)'); label.setAttribute('font-size', '9');
+                label.setAttribute('text-anchor', i === 0 ? 'start' : 'end');
+                label.textContent = i === 0 ? 'START' : 'END';
+                svg.appendChild(label);
+            }
         });
         
-        // Close shape for fill
-        pathD += `L ${width - padding} ${padding} Z`;
+        pathD += `L ${width - padX} ${padY} Z`;
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', pathD);
-        path.setAttribute('fill', 'rgba(0, 191, 165, 0.2)');
+        path.setAttribute('fill', 'rgba(0, 191, 165, 0.15)');
         path.setAttribute('stroke', '#00BFA5');
-        path.setAttribute('stroke-width', '1.5');
+        path.setAttribute('stroke-width', '2');
         svg.appendChild(path);
-        
-        // Sea level line
+
         const seaLevel = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        seaLevel.setAttribute('x1', padding);
-        seaLevel.setAttribute('y1', padding);
-        seaLevel.setAttribute('x2', width - padding);
-        seaLevel.setAttribute('y2', padding);
+        seaLevel.setAttribute('x1', padX); seaLevel.setAttribute('y1', padY);
+        seaLevel.setAttribute('x2', width - padX); seaLevel.setAttribute('y2', padY);
         seaLevel.setAttribute('stroke', '#5C8CA3');
         seaLevel.setAttribute('stroke-dasharray', '4 4');
         svg.appendChild(seaLevel);
