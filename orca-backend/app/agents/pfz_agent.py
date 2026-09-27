@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import urllib.request
 import json
 import math
@@ -39,7 +42,7 @@ def get_nearest_landing_centre(origin_lat: float, origin_lon: float) -> tuple[di
                         min_dist = dist
                         nearest_lc = p
     except Exception as e:
-        print(f"Error fetching Landing Centres: {e}")
+        logger.error(f"Error fetching Landing Centres: {e}")
 
     lc_info = None
     if nearest_lc:
@@ -76,7 +79,7 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
             data = json.loads(response.read().decode('utf-8'))
             pfz_features = data.get('features', [])
     except Exception as e:
-        print(f"Error fetching PFZ lines: {e}")
+        logger.error(f"Error fetching PFZ lines: {e}")
         fetch_failed = True
 
     if fetch_failed:
@@ -123,7 +126,7 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
             if f:
                 sst_val = f[0].get('properties', {}).get('GRAY_INDEX')
     except Exception as e:
-        print(f"Error fetching SST: {e}")
+        logger.error(f"Error fetching SST: {e}")
 
     chl_val = None
     try:
@@ -135,7 +138,7 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
             if f:
                 chl_val = f[0].get('properties', {}).get('GRAY_INDEX')
     except Exception as e:
-        print(f"Error fetching CHL: {e}")
+        logger.error(f"Error fetching CHL: {e}")
 
     return {
         "source": "INCOIS GeoServer (PFZ_Automation, PFZ_LandingCentres)",

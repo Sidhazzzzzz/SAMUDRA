@@ -71,6 +71,12 @@ Open **http://127.0.0.1:8080** in your browser.
 curl http://127.0.0.1:8000/health
 ```
 
+### System Status
+```bash
+curl http://127.0.0.1:8000/system/status
+```
+Returns a JSON report checking the live reachability of all external dependencies (Open-Meteo, NOAA ERDDAP, OpenTopoData, etc.) in a single call.
+
 ### Query endpoint
 ```bash
 curl -X POST http://127.0.0.1:8000/query \

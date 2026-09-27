@@ -26,6 +26,7 @@ class RouteRequestState(BaseModel):
     weather_risks: list[dict] = []
     optimized_route: list[dict] = []
     route_details: dict = {}
+    yearly_data: list[dict] = []
     execution_trace: list[dict] = []
     verdict: dict | None = None
     status: str | None = None
