@@ -75,15 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     // Disable click/scroll propagation for floating UI elements
-    const layerControls = document.getElementById('layer-controls');
-    const legendBox = document.getElementById('legend-box');
-    if (layerControls) {
-        L.DomEvent.disableClickPropagation(layerControls);
-        L.DomEvent.disableScrollPropagation(layerControls);
+    const floatingLayerControls = document.getElementById('layer-controls');
+    const floatingLegendBox = document.getElementById('legend-box');
+    if (floatingLayerControls) {
+        L.DomEvent.disableClickPropagation(floatingLayerControls);
+        L.DomEvent.disableScrollPropagation(floatingLayerControls);
     }
-    if (legendBox) {
-        L.DomEvent.disableClickPropagation(legendBox);
-        L.DomEvent.disableScrollPropagation(legendBox);
+    if (floatingLegendBox) {
+        L.DomEvent.disableClickPropagation(floatingLegendBox);
+        L.DomEvent.disableScrollPropagation(floatingLegendBox);
     }
 
 
