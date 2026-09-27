@@ -1,3 +1,5 @@
+const API_BASE_URL = "http://127.0.0.1:8000"; // will be updated after backend deployment
+
 // Global Error Handler
 (function() {
     function showErrorOverlay(msg, source, lineno, colno, error) {
@@ -305,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(riskFieldLayer);
 
             try {
-                let url = 'http://127.0.0.1:8000/risk-field';
+                let url = `${API_BASE_URL}/risk-field`;
                 if (window.lastState && window.lastState.origin) {
                     url += `?origin_lat=${window.lastState.origin.lat}&origin_lon=${window.lastState.origin.lon}`;
                 }
@@ -483,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoading(true);
 
         try {
-            const response = await fetch('http://127.0.0.1:8000/query', {
+            const response = await fetch(`${API_BASE_URL}/query`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -530,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 exportBtn.textContent = 'Generating PDF...';
                 exportBtn.disabled = true;
                 try {
-                    const response = await fetch('http://127.0.0.1:8000/export-pdf', {
+                    const response = await fetch(`${API_BASE_URL}/export-pdf`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(window.lastState)
@@ -1169,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchRankings() {
         try {
-            const res = await fetch('http://127.0.0.1:8000/coastal-authority/block-rankings');
+            const res = await fetch(`${API_BASE_URL}/coastal-authority/block-rankings`);
             if (!res.ok) {
                 alert("Fetch failed with status: " + res.status);
                 return;
@@ -1212,7 +1214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const severity = document.getElementById('bc-severity').value;
         
         try {
-            const res = await fetch('http://127.0.0.1:8000/coastal-authority/broadcast', {
+            const res = await fetch(`${API_BASE_URL}/coastal-authority/broadcast`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1283,7 +1285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         scientistAnalysisContent.classList.add('hidden');
 
         try {
-            const response = await fetch('http://127.0.0.1:8000/query', {
+            const response = await fetch(`${API_BASE_URL}/query`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_query: query, mode: 'scientist' })
