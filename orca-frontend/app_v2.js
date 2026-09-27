@@ -74,6 +74,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }).setView([10.0, 79.5], 7);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+    // Disable click/scroll propagation for floating UI elements
+    const layerControls = document.getElementById('layer-controls');
+    const legendBox = document.getElementById('legend-box');
+    if (layerControls) {
+        L.DomEvent.disableClickPropagation(layerControls);
+        L.DomEvent.disableScrollPropagation(layerControls);
+    }
+    if (legendBox) {
+        L.DomEvent.disableClickPropagation(legendBox);
+        L.DomEvent.disableScrollPropagation(legendBox);
+    }
+
+
     // Use Esri World Imagery for a genuine satellite/dark-ocean maritime aesthetic
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19
