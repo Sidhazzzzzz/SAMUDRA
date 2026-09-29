@@ -45,7 +45,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={
             "status": "error",
             "error_type": type(exc).__name__,
-            "message": "An internal error occurred. The ORCA team has been notified.",
+            "message": "An internal error occurred. The SAMUDRA team has been notified.",
             "path": str(request.url.path),
         },
     )

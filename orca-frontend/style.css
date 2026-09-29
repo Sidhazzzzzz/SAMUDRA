@@ -35,17 +35,18 @@
 }
 
 body {
+    zoom: 0.8;
     font-family: var(--font-body);
     background-color: var(--bg-navy);
     color: var(--text-main);
-    height: 100vh;
+    height: 125vh; width: 125vw;
     overflow: hidden;
 }
 
 .dashboard {
     display: flex;
-    height: 100vh;
-    width: 100vw;
+    height: 125vh; width: 125vw;
+    
 }
 
 /* Map Area */
@@ -804,7 +805,7 @@ body {
    ======================================================== */
 .dag-modal {
     position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
+    top: 0; left: 0;  height: 125vh; width: 125vw;
     background: rgba(17, 17, 17, 0.85); /* Dark overlay */
     z-index: 9999;
     display: flex;
@@ -970,7 +971,7 @@ body {
 .sidebar {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 125vh;
     padding: var(--space-md);
     gap: var(--space-md);
     box-sizing: border-box;

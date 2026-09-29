@@ -246,7 +246,7 @@ _TOOL_MAP: dict[str, Any] = {t.name: t for t in TOOLS}
 # ── LLM construction helpers ──────────────────────────────────────────────
 
 _TOOL_SELECTION_SYSTEM = (
-    "You are ORCA, a maritime decision-support assistant.\n"
+    "You are SAMUDRA, a maritime decision-support assistant.\n"
     "You have access to the following tools:\n"
     "  • get_active_pfz – look up Potential Fishing Zones\n"
     "  • get_storm_status – check storm / cyclone advisories\n"
@@ -276,7 +276,7 @@ _TOOL_SELECTION_SYSTEM = (
 )
 
 _NARRATION_SYSTEM = (
-    "You are ORCA, a maritime advisory narrator.\n"
+    "You are SAMUDRA, a maritime advisory narrator.\n"
     "You are given a pre-computed verdict (SAFE, CAUTION, or NO-GO) and its reason. "
     "You must state this exact verdict in your response — you are NOT permitted to soften, "
     "upgrade, downgrade, or reinterpret it. Your only job is to explain the verdict in plain "
@@ -503,7 +503,7 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
     
     if is_ecosystem:
         sys_prompt_to_use = (
-            "You are ORCA, a maritime advisory narrator.\n"
+            "You are SAMUDRA, a maritime advisory narrator.\n"
             "Your job is to explain the ecosystem trends clearly in plain language using the supporting data provided.\n\n"
             "STRICT RULES:\n"
             "1. This is a scientific query. Do NOT include a SAFE/CAUTION/NO-GO verdict. Just summarize the ecosystem data.\n"
@@ -680,7 +680,7 @@ def handle_query(state: RouteRequestState) -> RouteRequestState:
         # If no coordinates could be resolved at all, also fail closed
         state.verdict = None
         state.status = "OUT_OF_BOUNDS"
-        state.final_advisory_text = "This location could not be resolved or is outside ORCA's current operational area (Gulf of Mannar / Palk Bay, Tamil Nadu). This demo is scoped to this region and cannot provide marine safety data elsewhere."
+        state.final_advisory_text = "This location could not be resolved or is outside SAMUDRA's current operational area (Gulf of Mannar / Palk Bay, Tamil Nadu). This demo is scoped to this region and cannot provide marine safety data elsewhere."
         return state
         
     lat, lon = coords
@@ -689,7 +689,7 @@ def handle_query(state: RouteRequestState) -> RouteRequestState:
         logger.warning(f"Query out of bounds: {coords} for '{state.user_query}'")
         state.verdict = None
         state.status = "OUT_OF_BOUNDS"
-        state.final_advisory_text = "This location is outside ORCA's current operational area (Gulf of Mannar / Palk Bay, Tamil Nadu). This demo is scoped to this region and cannot provide marine safety data elsewhere."
+        state.final_advisory_text = "This location is outside SAMUDRA's current operational area (Gulf of Mannar / Palk Bay, Tamil Nadu). This demo is scoped to this region and cannot provide marine safety data elsewhere."
         return state
 
     state = parse_intent_and_dispatch(state)

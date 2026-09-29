@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'orca_advisory.pdf';
+                    a.download = 'samudra_advisory.pdf';
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
@@ -405,9 +405,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // B. Update Chat History
         if (data.final_advisory_text) {
             const formattedText = data.final_advisory_text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-            appendMessage('ORCA SYSTEM', formattedText, 'system-msg');
+            appendMessage('SAMUDRA SYSTEM', formattedText, 'system-msg');
         } else if (data.abort_reason) {
-            appendMessage('ORCA SYSTEM', `Mission Aborted: ${data.abort_reason}`, 'system-msg error-msg');
+            appendMessage('SAMUDRA SYSTEM', `Mission Aborted: ${data.abort_reason}`, 'system-msg error-msg');
         }
 
         // C. Update Map Layers
