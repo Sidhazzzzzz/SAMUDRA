@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8000"; // will be updated after backend deployment
+const API_BASE_URL = "https://samudra-5d5s.onrender.com"; // pointing to deployed backend
 
 // Global Error Handler
 (function() {
