@@ -68,6 +68,9 @@ const API_BASE_URL = "https://samudra-5d5s.onrender.com"; // pointing to deploye
     });
 })();
 document.addEventListener('DOMContentLoaded', () => {
+    fetch(API_BASE_URL + '/health').catch(e=>console.log(e));
+    
+    
     // 1. Initialize Map
     // Centered on Gulf of Mannar bounding box (lat 9.0–9.5, lon 79.0–79.8)
     const map = L.map('map', {

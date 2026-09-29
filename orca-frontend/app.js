@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+    fetch(API_BASE_URL + '/health').catch(e=>console.log(e));
+    
+    
+    // Wake up Render backend immediately
     // 1. Initialize Map
     // Centered on Gulf of Mannar bounding box (lat 9.0–9.5, lon 79.0–79.8)
     const map = L.map('map', {
