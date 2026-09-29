@@ -21,7 +21,7 @@ def generate_pdf_advisory(state_dict: dict) -> bytes:
     elements = []
     
     # Header
-    elements.append(Paragraph("SAMUDRA - Maritime Advisory Bulletin", title_style))
+    elements.append(Paragraph("SAMUDRA - Smart Agentic Marine Understanding, Data & Risk Analytics", title_style))
     elements.append(Spacer(1, 12))
     
     time_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
