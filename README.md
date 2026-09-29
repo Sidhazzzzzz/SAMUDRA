@@ -1,4 +1,4 @@
-# SAMUDRA — Maritime Decision-Support System
+# SAMUDRA - Smart Agentic Marine Understanding, Data & Risk Analytics
 
 A full-stack, AI-powered FastAPI backend and plain JS/HTML/CSS frontend for fishing and commercial route planning, PFZ (Potential Fishing Zone) lookup, storm advisories, and voyage risk assessment near the Indian coastline.
 
