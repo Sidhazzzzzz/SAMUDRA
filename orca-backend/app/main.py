@@ -16,7 +16,7 @@ from app.agents.reporting_agent import generate_pdf_advisory
 
 app = FastAPI(
     title="ORCA — Maritime Decision-Support System",
-    version="0.1.0",
+    version="1.0.0",
     description="Agentic backend for fishing-route planning, PFZ lookup, and storm advisories.",
 )
 
