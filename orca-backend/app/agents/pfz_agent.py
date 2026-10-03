@@ -4,6 +4,8 @@ logger = logging.getLogger(__name__)
 import urllib.request
 import json
 import math
+import os
+from datetime import datetime, timezone
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0 # Earth radius in kilometers
@@ -83,14 +85,12 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
         fetch_failed = True
 
     if fetch_failed:
-        import os
-        from datetime import datetime
         try:
             base_dir = os.path.dirname(os.path.dirname(__file__))
             fallback_path = os.path.join(base_dir, 'data', 'fallback', 'pfz_fallback_snapshot.json')
             with open(fallback_path, 'r') as f:
                 fb = json.load(f)
-            fb['source'] = f"LOCAL_FALLBACK_SNAPSHOT (captured 2026-09-19, live fetch failed)"
+            fb['source'] = f"LOCAL_FALLBACK_SNAPSHOT (captured {fb.get('captured_at', 'unknown date')}, live fetch failed)"
             return fb
         except Exception as fallback_e:
             return {"source": "LOCAL_FALLBACK_SNAPSHOT", "error": str(fallback_e)}
@@ -140,7 +140,7 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
     except Exception as e:
         logger.error(f"Error fetching CHL: {e}")
 
-    return {
+    result = {
         "source": "INCOIS GeoServer (PFZ_Automation, PFZ_LandingCentres)",
         "advisory_date": updated_date or f"{year} Julian Day {jday}",
         "region_bbox": region_bbox,
@@ -151,3 +151,18 @@ def get_active_pfz(region_bbox: list[float], origin_lat: float = 9.2885, origin_
         "sst_celsius": sst_val,
         "chlorophyll_mgm3": chl_val
     }
+
+    # Save successful fetch as fallback snapshot (mirrors marine_data_agent.py)
+    try:
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        fallback_dir = os.path.join(base_dir, 'data', 'fallback')
+        os.makedirs(fallback_dir, exist_ok=True)
+        fallback_path = os.path.join(fallback_dir, 'pfz_fallback_snapshot.json')
+        snapshot = dict(result)
+        snapshot['captured_at'] = datetime.now(timezone.utc).isoformat()
+        with open(fallback_path, 'w') as f:
+            json.dump(snapshot, f, indent=4)
+    except Exception as snap_e:
+        logger.error("Failed to save PFZ snapshot: %s", snap_e)
+
+    return result

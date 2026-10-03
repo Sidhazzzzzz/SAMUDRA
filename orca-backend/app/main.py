@@ -89,14 +89,14 @@ async def system_status():
         try:
             async with _httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(
-                    url, headers={"User-Agent": "ORCA_Maritime_App/1.0"}
+                    url, headers={"User-Agent": "SAMUDRA-Maritime-Advisory/1.0 (contact: sidharthakedlayah@gmail.com)"}
                 )
                 checks[name] = {"reachable": True, "status_code": resp.status_code}
         except Exception as e:
             checks[name] = {"reachable": False, "error": f"{type(e).__name__}: {e}"}
 
     await asyncio.gather(
-        probe("incois_wfs", "https://incois.gov.in/geoserver/web/"),
+        probe("incois_wfs", "https://incois.gov.in/geoserver/PFZ_Automation/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Automation:pfzlines&outputFormat=application/json&maxFeatures=1"),
         probe(
             "open_meteo_marine",
             "https://marine-api.open-meteo.com/v1/marine?latitude=9.25&longitude=79.4&current=wave_height",
@@ -122,9 +122,19 @@ async def system_status():
     checks["groq_api_key"] = {"configured": bool(os.getenv("GROQ_API_KEY"))}
     checks["gemini_api_key"] = {"configured": bool(os.getenv("GOOGLE_API_KEY"))}
 
+    # These two NOAA mirrors are optional — polarwatch + FIRST_COMPLETED race covers for them
+    OPTIONAL_CHECKS = {"noaa_erddap_coastwatch", "noaa_erddap_upwell"}
+
     all_ok = all(
-        c.get("reachable", c.get("configured", False)) for c in checks.values()
+        c.get("reachable", c.get("configured", False))
+        for name, c in checks.items()
+        if name not in OPTIONAL_CHECKS
     )
+
+    # Tag optional checks in the response so callers know they don't affect the verdict
+    for name in OPTIONAL_CHECKS:
+        if name in checks:
+            checks[name]["optional"] = True
 
     return {"status": "all_ok" if all_ok else "degraded", "checks": checks}
 
@@ -203,4 +213,3 @@ def get_block_rankings():
     from app.agents.coastal_authority_agent import get_coastal_block_rankings
     rankings = get_coastal_block_rankings()
     return {"status": "success", "rankings": rankings}
-

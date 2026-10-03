@@ -184,7 +184,7 @@ def get_storm_status(region_bbox: list[float] | None = None, target_time: str = 
                 f"(gusts {wind_gusts_knots} knots). Conditions within normal limits."
             )
 
-        return {
+        result = {
             "source": source_label,
             "fetched_at": now_iso,
             "is_forecast": is_forecast,
@@ -203,6 +203,22 @@ def get_storm_status(region_bbox: list[float] | None = None, target_time: str = 
             "summary": summary,
         }
 
+        # Save successful fetch as fallback snapshot (mirrors marine_data_agent.py)
+        try:
+            import json as _json
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            fallback_dir = os.path.join(base_dir, 'data', 'fallback')
+            os.makedirs(fallback_dir, exist_ok=True)
+            fallback_path = os.path.join(fallback_dir, 'weather_fallback_snapshot.json')
+            snapshot = dict(result)
+            snapshot['captured_at'] = datetime.now(timezone.utc).isoformat()
+            with open(fallback_path, 'w') as f:
+                _json.dump(snapshot, f, indent=4)
+        except Exception as snap_e:
+            logger.error("Failed to save weather snapshot: %s", snap_e)
+
+        return result
+
     except Exception as exc:
         logger.error("Open-Meteo Marine API fetch failed: %s", exc)
         
@@ -212,7 +228,7 @@ def get_storm_status(region_bbox: list[float] | None = None, target_time: str = 
             fallback_path = os.path.join(base_dir, 'data', 'fallback', 'weather_fallback_snapshot.json')
             with open(fallback_path, 'r') as f:
                 fb = json.load(f)
-            fb['source'] = "LOCAL_FALLBACK_SNAPSHOT (captured 2026-09-19, live fetch failed)"
+            fb['source'] = f"LOCAL_FALLBACK_SNAPSHOT (captured {fb.get('captured_at', 'unknown date')}, live fetch failed)"
             return fb
         except Exception as fallback_e:
             logger.error(f"Fallback snapshot failed to load: {fallback_e}")

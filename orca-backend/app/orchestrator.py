@@ -285,7 +285,7 @@ _NARRATION_SYSTEM = (
     "1. State the exact pre-computed verdict (SAFE, CAUTION, or NO-GO) prominently at the beginning.\n"
     "2. You are NOT permitted to decide or alter the safety verdict on your own.\n"
     "3. ONLY narrate the values present in the JSON — never invent, alter, "
-    "   or add any numeric or geospatial data not present in the input. Explicitly forbidden: mentioning fish species or confidence percentages (this data does not exist in the real source).\n"\
+    "   or add any numeric or geospatial data not present in the input. Explicitly forbidden: mentioning fish species or confidence percentages (this data does not exist in the real source).\n"
     "4. If mpa_caution is true, clearly mention the route intersects the provided MPA/Sector name, using only the provided name without inventing regulatory language.\n"
     "5. When describing PFZ advisories, ALWAYS use the bearing/distance/depth guidance from the named landing centre provided in the data.\n"
     "6. If ecosystem trend data is partial (e.g. SST is present but Chlorophyll is unavailable/null), confidently report the real SST trend and explicitly state: 'Chlorophyll data is currently unavailable (NOAA ERDDAP unreachable)'. Do NOT suppress the valid SST data just because Chlorophyll failed.\n"
@@ -563,13 +563,36 @@ def narrate_result(state: RouteRequestState) -> RouteRequestState:
             raw_summary = "Data retrieved successfully."
             
         state.final_advisory_text = (
-            f"Advisory computed successfully, but narration is temporarily unavailable \u2014 raw data: [{raw_summary}]"
+            f"Advisory computed successfully, but narration is temporarily unavailable — raw data: [{raw_summary}]"
         )
 
     return state
 
 
 # ── Public entry point ─────────────────────────────────────────────────────
+
+
+from app.cache import with_cache
+import difflib
+
+
+@with_cache(ttl=300)
+def _nominatim_lookup(query: str) -> tuple[float, float] | None:
+    """Tier 3: Cached Nominatim geocode lookup."""
+    try:
+        nom_resp = httpx.get(
+            'https://nominatim.openstreetmap.org/search',
+            params={'q': query, 'format': 'json', 'limit': '1'},
+            headers={'User-Agent': 'SAMUDRA-Maritime-Advisory/1.0 (contact: sidharthakedlayah@gmail.com)'},
+            timeout=3.0,
+        )
+        nom_resp.raise_for_status()
+        data = nom_resp.json()
+        if data:
+            return float(data[0]['lat']), float(data[0]['lon'])
+    except httpx.HTTPError as e:
+        logger.warning(f"Tier 3 Nominatim error or timeout: {e}")
+    return None
 
 
 def get_location_coordinates(query: str) -> tuple[float, float] | None:
@@ -582,10 +605,10 @@ def get_location_coordinates(query: str) -> tuple[float, float] | None:
         logger.info(f"Location resolved via Tier 1 (Regex): {match.groups()}")
         return float(match.group(1)), float(match.group(2))
     
-    # Tier 2: Local Gazetteer
+    # Tier 2: Local Gazetteer (exact substring match)
     query_lower = query.lower()
     gazetteer = {
-        "rameswaram": (9.2885, 79.3129),
+        "rameswaram": (9.2885, 79.3129), "rameshwaram": (9.2885, 79.3129),
         "ராமேஸ்வரம்": (9.2885, 79.3129),
         "रामेश्वरम": (9.2885, 79.3129),
         "dhanushkodi": (9.1600, 79.4300),
@@ -613,23 +636,23 @@ def get_location_coordinates(query: str) -> tuple[float, float] | None:
             logger.info(f"Location resolved via Tier 2 (Gazetteer): {place} -> {coords}")
             return coords
 
-    # Tier 3: Hardened Nominatim Fallback
-    try:
-        nom_resp = httpx.get(
-            'https://nominatim.openstreetmap.org/search',
-            params={'q': query, 'format': 'json', 'limit': '1'},
-            headers={'User-Agent': 'ORCA_Maritime_App/1.0'},
-            timeout=3.0,
-        )
-        nom_resp.raise_for_status()
-        data = nom_resp.json()
-        if data:
-            logger.info(f"Location resolved via Tier 3 (Nominatim): {data[0]['lat']}, {data[0]['lon']}")
-            return float(data[0]['lat']), float(data[0]['lon'])
-    except httpx.HTTPError as e:
-        logger.warning(f"Tier 3 Nominatim error or timeout: {e}")
-        return None
-        
+    # Tier 2b: Fuzzy gazetteer match (typo tolerance)
+    words = re.findall(r'\b\w+\b', query_lower)
+    for n in range(1, 4):  # Check 1, 2, and 3-word combinations
+        for i in range(len(words) - n + 1):
+            ngram = " ".join(words[i:i+n])
+            close = difflib.get_close_matches(ngram, gazetteer.keys(), n=1, cutoff=0.8)
+            if close:
+                coords = gazetteer[close[0]]
+                logger.info(f"Location resolved via Tier 2 (Gazetteer, fuzzy match): '{close[0]}' (matched '{ngram}') -> {coords}")
+                return coords
+
+    # Tier 3: Cached Nominatim Fallback
+    result = _nominatim_lookup(query)
+    if result:
+        logger.info(f"Location resolved via Tier 3 (Nominatim): {result[0]}, {result[1]}")
+        return result
+
     return None
 
 def handle_query(state: RouteRequestState) -> RouteRequestState:

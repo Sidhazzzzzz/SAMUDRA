@@ -68,7 +68,40 @@ const API_BASE_URL = "https://samudra-5d5s.onrender.com"; // pointing to deploye
     });
 })();
 document.addEventListener('DOMContentLoaded', () => {
-    fetch(API_BASE_URL + '/health').catch(e=>console.log(e));
+    // Cold-start UX banner
+    const startupBanner = document.createElement('div');
+    startupBanner.style.position = 'fixed';
+    startupBanner.style.top = '0';
+    startupBanner.style.left = '0';
+    startupBanner.style.width = '100vw';
+    startupBanner.style.backgroundColor = 'var(--alert-caution, #FFB300)';
+    startupBanner.style.color = '#000';
+    startupBanner.style.textAlign = 'center';
+    startupBanner.style.padding = '10px';
+    startupBanner.style.zIndex = '999999';
+    startupBanner.style.fontFamily = 'var(--font-body, Inter, sans-serif)';
+    startupBanner.style.fontWeight = 'bold';
+    startupBanner.style.boxShadow = '0 2px 10px rgba(0,0,0,0.5)';
+    startupBanner.textContent = 'Connecting to SAMUDRA backend...';
+    document.body.appendChild(startupBanner);
+
+    let healthTimeoutId = setTimeout(() => {
+        startupBanner.textContent = 'Backend is waking up from idle (free-tier hosting) — this can take up to 50 seconds on first load.';
+    }, 8000);
+
+    fetch(API_BASE_URL + '/health')
+        .then(r => {
+            clearTimeout(healthTimeoutId);
+            if (r.ok) startupBanner.remove();
+            else startupBanner.textContent = 'Backend connected but returned an error status.';
+        })
+        .catch(e => {
+            clearTimeout(healthTimeoutId);
+            startupBanner.textContent = 'Could not reach the SAMUDRA backend. Please refresh the page in a few seconds.';
+            startupBanner.style.backgroundColor = 'var(--alert-nogo, #D81B60)';
+            startupBanner.style.color = '#fff';
+            console.error('Health ping failed:', e);
+        });
     
     
     // 1. Initialize Map
@@ -486,6 +519,12 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInput.value = '';
         
         setLoading(true);
+        let queryTimeoutId = setTimeout(() => {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            if (loadingIndicator && !loadingIndicator.classList.contains('hidden')) {
+                loadingIndicator.innerHTML = '<span class="spinner"></span> Backend is waking up from idle (free-tier hosting) — this can take up to 50 seconds on first load.';
+            }
+        }, 8000);
 
         try {
             const response = await fetch(`${API_BASE_URL}/query`, {
@@ -497,6 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     chat_history: conversationTurns.slice(-6)
                 })
             });
+            clearTimeout(queryTimeoutId);
 
             if (!response.ok) {
                 throw new Error(`Backend Error: ${response.status} ${response.statusText}`);
@@ -510,10 +550,15 @@ document.addEventListener('DOMContentLoaded', () => {
             handleSystemResponse(data);
 
         } catch (error) {
+            clearTimeout(queryTimeoutId);
             console.error(error);
-            appendMessage('SYSTEM ERROR', error.message + ' (Check if backend is running)', 'system-msg error-msg');
+            appendMessage('SYSTEM ERROR', 'Could not reach the SAMUDRA backend. Please retry in a few seconds.', 'system-msg error-msg');
         } finally {
             setLoading(false);
+            const loadingIndicator = document.getElementById('loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.innerHTML = '<span class="spinner"></span> Processing maritime data...';
+            }
         }
     });
 
