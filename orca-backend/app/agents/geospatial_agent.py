@@ -33,7 +33,26 @@ IMBL_PALK_STRAIT_COORDS = [
     (79.5333,  9.1000),   # Position 6
 ]
 
-IMBL_LINE = LineString(IMBL_PALK_STRAIT_COORDS)
+# Coordinates from the 1976 Indo-Sri Lanka Gulf of Mannar Agreement (LKA-IND1976MB.PDF)
+# for positions 1m-13m, and the supplementary agreement (LKA-IND1976TP.PDF) for Point T.
+IMBL_GULF_MANNAR_COORDS = [
+    # Position 1m (79.5333, 9.1000) omitted — identical to IMBL_PALK_STRAIT_COORDS' final point, the two segments share this vertex
+    (79.5217, 9.0000),    # Position 2m
+    (79.4883, 8.8967),    # Position 3m
+    (79.3033, 8.6667),    # Position 4m
+    (79.2167, 8.6200),    # Position 5m
+    (79.0783, 8.5200),    # Position 6m
+    (78.9233, 8.3700),    # Position 7m
+    (78.8950, 8.2033),    # Position 8m
+    (78.7617, 7.5883),    # Position 9m
+    (78.6467, 7.3500),    # Position 10m
+    (78.2033, 6.5133),    # Position 11m
+    (77.8450, 5.8983),    # Position 12m
+    (77.1767, 5.0000),    # Position 13m
+    (77.0233, 4.7840),    # Point T (trijunction, India-Sri Lanka-Maldives) -- boundary terminates here, do not extend further
+]
+
+IMBL_LINE = LineString(IMBL_PALK_STRAIT_COORDS + IMBL_GULF_MANNAR_COORDS)
 
 # 3 nautical miles caution buffer
 # 1 nm = 1.852 km.  At the equator 1° ≈ 111.32 km, so
