@@ -25,24 +25,47 @@ REQUEST_TIMEOUT_SECONDS = 8.0
 
 from app.cache import with_cache
 
-@with_cache(ttl=300)
+class _HiddenArg:
+    def __init__(self, val):
+        self.val = val
+    def __str__(self):
+        return "hidden"
+
 def get_storm_status(region_bbox: list[float] | None = None, target_time: str = "now") -> dict:
     """Fetch live marine wave and wind conditions from Open-Meteo Marine API.
 
     Evaluates whether conditions exceed safe operating thresholds for fishing
     vessels in the given bounding box [south, west, north, east].
     """
+    if region_bbox and len(region_bbox) == 4:
+        lat_full = (region_bbox[0] + region_bbox[2]) / 2.0
+        lon_full = (region_bbox[1] + region_bbox[3]) / 2.0
+    else:
+        lat_full = 9.25
+        lon_full = 79.4
+        region_bbox = [9.0, 79.0, 9.5, 79.8]
+
+    # Coarsen specifically for cache key
+    lat_key = round(lat_full, 2)
+    lon_key = round(lon_full, 2)
+
+    return _fetch_storm_status_cached(
+        lat_key, 
+        lon_key, 
+        target_time, 
+        _HiddenArg(round(lat_full, 4)), 
+        _HiddenArg(round(lon_full, 4)), 
+        _HiddenArg(region_bbox)
+    )
+
+@with_cache(ttl=300)
+def _fetch_storm_status_cached(lat_key: float, lon_key: float, target_time: str, exact_lat: _HiddenArg, exact_lon: _HiddenArg, exact_bbox: _HiddenArg) -> dict:
+    lat = exact_lat.val
+    lon = exact_lon.val
+    region_bbox = exact_bbox.val
+
     now_iso = datetime.now(timezone.utc).isoformat()
     source_label = f"Open-Meteo Marine API ({now_iso})"
-
-    # Calculate representative centroid for the bounding box
-    if region_bbox and len(region_bbox) == 4:
-        lat = round((region_bbox[0] + region_bbox[2]) / 2.0, 4)
-        lon = round((region_bbox[1] + region_bbox[3]) / 2.0, 4)
-    else:
-        lat = 9.25
-        lon = 79.4
-        region_bbox = [9.0, 79.0, 9.5, 79.8]
 
     is_forecast = False
     
