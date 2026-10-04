@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from app.schemas import RouteRequestState
 from app.orchestrator import handle_query
 from app.agents.reporting_agent import generate_pdf_advisory
+from app.cache import with_cache
 
 app = FastAPI(
     title="ORCA — Maritime Decision-Support System",
@@ -77,6 +78,7 @@ async def health() -> dict:
 
 
 @app.get("/system/status")
+@with_cache(ttl=30)
 async def system_status():
     """Check live reachability of every external dependency in one call."""
     import asyncio
