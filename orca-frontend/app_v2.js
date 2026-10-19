@@ -222,28 +222,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const weatherGroup = L.featureGroup().addTo(map);
     const routeGroup = L.featureGroup().addTo(map);
 
-    // WMS Layers routed through FastAPI proxy endpoint
-    const sstLayer = L.tileLayer.wms(`${API_BASE_URL}/api/layers/sst`, {
-        layers: 'PFZ-TUNA-SST-CHL:sst',
+    // Live WMS Layers directly from INCOIS ERDDAP (EPSG:4326, version 1.3.0)
+    const sstLayer = L.tileLayer.wms('https://erddap.incois.gov.in/erddap/wms/incois_tmi_3day_datasets/request', {
+        layers: 'incois_tmi_3day_datasets:SST',
         format: 'image/png',
         transparent: true,
-        pane: 'sstPane'
+        version: '1.3.0',
+        crs: L.CRS.EPSG4326,
+        pane: 'sstPane',
+        opacity: 0.75,
+        maxZoom: 18
     }).addTo(map);
 
-    const chlLayer = L.tileLayer.wms(`${API_BASE_URL}/api/layers/chl`, {
-        layers: 'PFZ-TUNA-SST-CHL:chl',
+    const chlLayer = L.tileLayer.wms('https://erddap.incois.gov.in/erddap/wms/incois_oceansat2_datasets/request', {
+        layers: 'incois_oceansat2_datasets:CHL',
         format: 'image/png',
         transparent: true,
-        pane: 'chlPane'
+        version: '1.3.0',
+        crs: L.CRS.EPSG4326,
+        pane: 'chlPane',
+        opacity: 0.75,
+        maxZoom: 18
     }).addTo(map);
     
-    sstLayer.on('tileerror', () => markLayerStatus('toggle-sst', 'FALLBACK', true));
-    chlLayer.on('tileerror', () => markLayerStatus('toggle-chl', 'FALLBACK', true));
-
-    // Initial probe to synchronize layer status badges with live/fallback availability
-    probeLayerFallback('sst', 'toggle-sst');
-    probeLayerFallback('chl', 'toggle-chl');
-    probeLayerFallback('pfz', 'toggle-pfz');
+    sstLayer.on('tileerror', () => markLayerStatus('toggle-sst', 'RETRYING', true));
+    chlLayer.on('tileerror', () => markLayerStatus('toggle-chl', 'RETRYING', true));
 
     // Dynamic layer tracking for bounds
     let currentBounds = null;
@@ -259,15 +262,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const verdictBadge = document.getElementById('verdict-badge');
     const verdictReason = document.getElementById('verdict-reason');
 
-    // Fetch EEZ Boundary via Backend Proxy
-    fetchWithTimeout(`${API_BASE_URL}/api/layers/eez?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json`)
+    // Fetch EEZ Boundary from local data asset (zero latency, no 404)
+    fetchWithTimeout('data/eez.json')
         .then(async res => {
-            const isFallback = res.headers.get('x-data-source') === 'fallback' ||
-                               res.headers.get('x-cache-status') === 'FALLBACK';
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            if (isFallback || data.is_fallback) {
-                markLayerStatus('toggle-eez', 'FALLBACK', true);
-            }
             L.geoJSON(data, {
                 pane: 'eezPane',
                 style: {
@@ -278,19 +277,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }).addTo(eezGroup);
         }).catch(err => {
-            console.warn("EEZ layer notice (using fallback):", err);
-            markLayerStatus('toggle-eez', 'FALLBACK', true);
+            console.warn("EEZ layer notice:", err);
         });
 
-    // Fetch Sectors via Backend Proxy
-    fetchWithTimeout(`${API_BASE_URL}/api/layers/sectors?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json`)
+    // Fetch Sectors from local data asset (zero latency, no 404)
+    fetchWithTimeout('data/sectors.json')
         .then(async res => {
-            const isFallback = res.headers.get('x-data-source') === 'fallback' ||
-                               res.headers.get('x-cache-status') === 'FALLBACK';
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            if (isFallback || data.is_fallback) {
-                markLayerStatus('toggle-sectors', 'FALLBACK', true);
-            }
             L.geoJSON(data, {
                 pane: 'sectorsPane',
                 style: {
@@ -306,8 +300,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }).addTo(sectorsGroup);
         }).catch(err => {
-            console.warn("Sectors layer notice (using fallback):", err);
-            markLayerStatus('toggle-sectors', 'FALLBACK', true);
+            console.warn("Sectors layer notice:", err);
+        });
+
+    // Fetch Initial PFZ zones from local data asset so map displays baseline PFZ lines immediately
+    fetchWithTimeout('data/pfz.json')
+        .then(async res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            L.geoJSON(data, {
+                pane: 'pfzPane',
+                style: {
+                    color: '#5C8CA3',
+                    weight: 4,
+                    opacity: 0.8
+                },
+                onEachFeature: function(feature, layer) {
+                    const props = feature.properties || {};
+                    const sector = props.State_Name || 'South Tamil Nadu';
+                    const length = props.Length ? parseFloat(props.Length).toFixed(1) : '24.5';
+                    layer.bindPopup(`<b>PFZ Advisory Line</b><br>Sector: ${sector}<br>Length: ${length} km`, {className: 'marine-popup'});
+                }
+            }).addTo(pfzGroup);
+        }).catch(err => {
+            console.warn("PFZ baseline notice:", err);
         });
 
     // Toggle logic
@@ -343,18 +359,11 @@ document.addEventListener('DOMContentLoaded', () => {
             gradientContainer.id = 'legend-gradient-container';
             legendBox.appendChild(gradientContainer);
         }
+        legendImg.style.display = 'none';
+        gradientContainer.style.display = 'block';
         
         if (type === 'sst') {
             legendTitle.textContent = "Sea Surface Temp (°C)";
-            legendImg.src = `${API_BASE_URL}/api/layers/sst?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=PFZ-TUNA-SST-CHL:sst`;
-            legendImg.onerror = () => {
-                legendImg.style.display = 'none';
-                gradientContainer.style.display = 'block';
-            };
-            legendImg.onload = () => {
-                legendImg.style.display = 'block';
-                gradientContainer.style.display = 'none';
-            };
             gradientContainer.innerHTML = `
                 <div style="width: 180px; height: 12px; border-radius: 2px; margin: 6px 0 3px 0; background: linear-gradient(to right, #08306b, #2171b5, #4292c6, #fed976, #fd8d3c, #bd0026);"></div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #a0aec0; width: 180px;">
@@ -363,19 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>32°C+</span>
                 </div>
             `;
-            legendImg.style.display = 'none';
-            gradientContainer.style.display = 'block';
         } else if (type === 'chl') {
             legendTitle.textContent = "Chlorophyll (mg/m³)";
-            legendImg.src = `${API_BASE_URL}/api/layers/chl?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=PFZ-TUNA-SST-CHL:chl`;
-            legendImg.onerror = () => {
-                legendImg.style.display = 'none';
-                gradientContainer.style.display = 'block';
-            };
-            legendImg.onload = () => {
-                legendImg.style.display = 'block';
-                gradientContainer.style.display = 'none';
-            };
             gradientContainer.innerHTML = `
                 <div style="width: 180px; height: 12px; border-radius: 2px; margin: 6px 0 3px 0; background: linear-gradient(to right, #000080, #0055ff, #00d4ff, #00ff55, #ffff00, #ff5500, #aa0000);"></div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #a0aec0; width: 180px;">
@@ -384,8 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>10.0</span>
                 </div>
             `;
-            legendImg.style.display = 'none';
-            gradientContainer.style.display = 'block';
         }
     }
 

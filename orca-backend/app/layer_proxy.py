@@ -27,6 +27,8 @@ FALLBACK_DIR = DATA_DIR / "fallback"
 LAYER_CACHE_DIR = DATA_DIR / "cache" / "layers"
 LAYER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+INCOIS_SST_WMS = "https://erddap.incois.gov.in/erddap/wms/incois_tmi_3day_datasets/request"
+INCOIS_CHL_WMS = "https://erddap.incois.gov.in/erddap/wms/incois_oceansat2_datasets/request"
 INCOIS_BASE_WMS = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms"
 INCOIS_EEZ_WFS = "https://incois.gov.in/geoserver/PFZ_EEZ/wfs"
 INCOIS_SECTORS_WFS = "https://incois.gov.in/geoserver/PFZ_Sectors/wfs"
@@ -76,36 +78,44 @@ async def proxy_layer_request(layer_path: str, request: Request) -> Response:
     is_legend = params.get("REQUEST", "").lower() == "getlegendgraphic" or params.get("request", "").lower() == "getlegendgraphic"
 
     if layer_name == "sst":
-        upstream_url = INCOIS_BASE_WMS
+        upstream_url = INCOIS_SST_WMS
         if is_legend:
             params.setdefault("REQUEST", "GetLegendGraphic")
             params.setdefault("VERSION", "1.0.0")
             params.setdefault("FORMAT", "image/png")
-            params.setdefault("LAYER", "PFZ-TUNA-SST-CHL:sst")
-            params.setdefault("LEGEND_OPTIONS", "fontAntiAliasing:true;dpi:120")
+            params.setdefault("LAYER", "incois_tmi_3day_datasets:SST")
         else:
             params.setdefault("SERVICE", "WMS")
-            params.setdefault("VERSION", "1.1.1")
+            params.setdefault("VERSION", "1.3.0")
             params.setdefault("REQUEST", "GetMap")
-            params.setdefault("LAYERS", "PFZ-TUNA-SST-CHL:sst")
+            params["LAYERS"] = "incois_tmi_3day_datasets:SST"
             params.setdefault("FORMAT", "image/png")
             params.setdefault("TRANSPARENT", "true")
+            if "srs" in params and "crs" not in params:
+                params["crs"] = params.pop("srs")
+            if "SRS" in params and "CRS" not in params:
+                params["CRS"] = params.pop("SRS")
+            params.setdefault("CRS", "EPSG:4326")
 
     elif layer_name == "chl":
-        upstream_url = INCOIS_BASE_WMS
+        upstream_url = INCOIS_CHL_WMS
         if is_legend:
             params.setdefault("REQUEST", "GetLegendGraphic")
             params.setdefault("VERSION", "1.0.0")
             params.setdefault("FORMAT", "image/png")
-            params.setdefault("LAYER", "PFZ-TUNA-SST-CHL:chl")
-            params.setdefault("LEGEND_OPTIONS", "fontAntiAliasing:true;dpi:120")
+            params.setdefault("LAYER", "incois_oceansat2_datasets:CHL")
         else:
             params.setdefault("SERVICE", "WMS")
-            params.setdefault("VERSION", "1.1.1")
+            params.setdefault("VERSION", "1.3.0")
             params.setdefault("REQUEST", "GetMap")
-            params.setdefault("LAYERS", "PFZ-TUNA-SST-CHL:chl")
+            params["LAYERS"] = "incois_oceansat2_datasets:CHL"
             params.setdefault("FORMAT", "image/png")
             params.setdefault("TRANSPARENT", "true")
+            if "srs" in params and "crs" not in params:
+                params["crs"] = params.pop("srs")
+            if "SRS" in params and "CRS" not in params:
+                params["CRS"] = params.pop("SRS")
+            params.setdefault("CRS", "EPSG:4326")
 
     elif layer_name == "eez":
         upstream_url = INCOIS_EEZ_WFS
@@ -180,9 +190,13 @@ async def proxy_layer_request(layer_path: str, request: Request) -> Response:
             async with httpx.AsyncClient(timeout=2.5, verify=False) as client:
                 resp = await client.get(upstream_url, params=params, headers=HEADERS)
                 if resp.status_code == 200 and len(resp.content) > 0:
-                    live_content = resp.content
-                    media_type = resp.headers.get("content-type", media_type)
-                    _record_upstream_success(layer_name)
+                    if ext == "png" and not resp.content.startswith(b"\x89PNG"):
+                        fetch_error = "Upstream returned non-PNG content"
+                        _record_upstream_failure(layer_name)
+                    else:
+                        live_content = resp.content
+                        media_type = "image/png" if ext == "png" else resp.headers.get("content-type", media_type)
+                        _record_upstream_success(layer_name)
                 else:
                     fetch_error = f"HTTP {resp.status_code}"
                     _record_upstream_failure(layer_name)

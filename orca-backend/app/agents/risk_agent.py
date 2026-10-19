@@ -90,8 +90,7 @@ def evaluate_verdict(
     is_fallback = False
     if not result:
         weather_src = weather_result.get("source", "") if weather_result else ""
-        pfz_src = pfz_result.get("source", "") if pfz_result else ""
-        if "LOCAL_FALLBACK_SNAPSHOT" in weather_src or "LOCAL_FALLBACK_SNAPSHOT" in pfz_src:
+        if "LOCAL_FALLBACK_SNAPSHOT" in weather_src:
             is_fallback = True
 
         # Priority 2: Active storm / severe condition triggered

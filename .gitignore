@@ -51,3 +51,7 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Cache
+orca-backend/app/data/cache/
+.pytest_cache/
