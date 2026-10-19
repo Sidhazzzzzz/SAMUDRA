@@ -167,10 +167,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function markLayerError(toggleId) {
+    function markLayerStatus(toggleId, statusText, isFallback) {
         const label = document.querySelector(`label[for="${toggleId}"]`);
-        if (label && !label.querySelector('.layer-error')) {
-            label.innerHTML += ' <span class="layer-error" title="Layer unavailable">⚠️ unavailable</span>';
+        if (!label) return;
+        let badge = label.querySelector('.layer-status-badge');
+        if (isFallback) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'layer-status-badge';
+                label.appendChild(badge);
+            }
+            badge.style.color = '#F59E0B';
+            badge.style.fontSize = '0.72rem';
+            badge.style.fontWeight = '600';
+            badge.style.marginLeft = '6px';
+            badge.style.letterSpacing = '0.02em';
+            badge.title = 'Served via backend cache/fallback snapshot';
+            badge.textContent = `[${statusText}]`;
+        } else if (badge) {
+            badge.remove();
+        }
+    }
+
+    function markLayerError(toggleId) {
+        markLayerStatus(toggleId, 'FALLBACK', true);
+    }
+
+    async function probeLayerFallback(layerName, toggleId) {
+        try {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/api/layers/${layerName}?probe=1`, {}, 3000);
+            const dataSource = res.headers.get('x-data-source');
+            const cacheStatus = res.headers.get('x-cache-status');
+            const data = await res.json().catch(() => ({}));
+            if (dataSource === 'fallback' || cacheStatus === 'FALLBACK' || data.is_fallback || data.status === 'fallback') {
+                markLayerStatus(toggleId, 'FALLBACK', true);
+            }
+        } catch (e) {
+            markLayerStatus(toggleId, 'FALLBACK', true);
         }
     }
 
@@ -189,26 +222,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const weatherGroup = L.featureGroup().addTo(map);
     const routeGroup = L.featureGroup().addTo(map);
 
-    // WMS Layers
-    const sstLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms', {
+    // WMS Layers routed through FastAPI proxy endpoint
+    const sstLayer = L.tileLayer.wms(`${API_BASE_URL}/api/layers/sst`, {
         layers: 'PFZ-TUNA-SST-CHL:sst',
         format: 'image/png',
         transparent: true,
         pane: 'sstPane'
     }).addTo(map);
 
-    const chlLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms', {
+    const chlLayer = L.tileLayer.wms(`${API_BASE_URL}/api/layers/chl`, {
         layers: 'PFZ-TUNA-SST-CHL:chl',
         format: 'image/png',
         transparent: true,
         pane: 'chlPane'
     }).addTo(map);
     
-    sstLayer.on('tileerror', () => markLayerError('toggle-sst'));
-    chlLayer.on('tileerror', () => markLayerError('toggle-chl'));
-    
-    sstLayer.on('tileerror', () => markLayerError('toggle-sst'));
-    chlLayer.on('tileerror', () => markLayerError('toggle-chl'));
+    sstLayer.on('tileerror', () => markLayerStatus('toggle-sst', 'FALLBACK', true));
+    chlLayer.on('tileerror', () => markLayerStatus('toggle-chl', 'FALLBACK', true));
+
+    // Initial probe to synchronize layer status badges with live/fallback availability
+    probeLayerFallback('sst', 'toggle-sst');
+    probeLayerFallback('chl', 'toggle-chl');
+    probeLayerFallback('pfz', 'toggle-pfz');
 
     // Dynamic layer tracking for bounds
     let currentBounds = null;
@@ -224,10 +259,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const verdictBadge = document.getElementById('verdict-badge');
     const verdictReason = document.getElementById('verdict-reason');
 
-    // Fetch EEZ Boundary
-    fetchWithTimeout('https://incois.gov.in/geoserver/PFZ_EEZ/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json')
-        .then(res => res.json())
-        .then(data => {
+    // Fetch EEZ Boundary via Backend Proxy
+    fetchWithTimeout(`${API_BASE_URL}/api/layers/eez?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_EEZ:indiaeez&outputFormat=application/json`)
+        .then(async res => {
+            const isFallback = res.headers.get('x-data-source') === 'fallback' ||
+                               res.headers.get('x-cache-status') === 'FALLBACK';
+            const data = await res.json();
+            if (isFallback || data.is_fallback) {
+                markLayerStatus('toggle-eez', 'FALLBACK', true);
+            }
             L.geoJSON(data, {
                 pane: 'eezPane',
                 style: {
@@ -238,14 +278,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }).addTo(eezGroup);
         }).catch(err => {
-            console.error(err);
-            markLayerError('toggle-eez');
+            console.warn("EEZ layer notice (using fallback):", err);
+            markLayerStatus('toggle-eez', 'FALLBACK', true);
         });
 
-    // Fetch Sectors
-    fetchWithTimeout('https://incois.gov.in/geoserver/PFZ_Sectors/wfs?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json')
-        .then(res => res.json())
-        .then(data => {
+    // Fetch Sectors via Backend Proxy
+    fetchWithTimeout(`${API_BASE_URL}/api/layers/sectors?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=PFZ_Sectors:sector_new&outputFormat=application/json`)
+        .then(async res => {
+            const isFallback = res.headers.get('x-data-source') === 'fallback' ||
+                               res.headers.get('x-cache-status') === 'FALLBACK';
+            const data = await res.json();
+            if (isFallback || data.is_fallback) {
+                markLayerStatus('toggle-sectors', 'FALLBACK', true);
+            }
             L.geoJSON(data, {
                 pane: 'sectorsPane',
                 style: {
@@ -261,8 +306,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }).addTo(sectorsGroup);
         }).catch(err => {
-            console.error(err);
-            markLayerError('toggle-sectors');
+            console.warn("Sectors layer notice (using fallback):", err);
+            markLayerStatus('toggle-sectors', 'FALLBACK', true);
         });
 
     // Toggle logic
@@ -291,6 +336,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const legendImg = document.getElementById('legend-img');
     const legendTitle = document.getElementById('legend-title');
 
+    function renderLegendUI(type) {
+        let gradientContainer = document.getElementById('legend-gradient-container');
+        if (!gradientContainer) {
+            gradientContainer = document.createElement('div');
+            gradientContainer.id = 'legend-gradient-container';
+            legendBox.appendChild(gradientContainer);
+        }
+        
+        if (type === 'sst') {
+            legendTitle.textContent = "Sea Surface Temp (°C)";
+            legendImg.src = `${API_BASE_URL}/api/layers/sst?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=PFZ-TUNA-SST-CHL:sst`;
+            legendImg.onerror = () => {
+                legendImg.style.display = 'none';
+                gradientContainer.style.display = 'block';
+            };
+            legendImg.onload = () => {
+                legendImg.style.display = 'block';
+                gradientContainer.style.display = 'none';
+            };
+            gradientContainer.innerHTML = `
+                <div style="width: 180px; height: 12px; border-radius: 2px; margin: 6px 0 3px 0; background: linear-gradient(to right, #08306b, #2171b5, #4292c6, #fed976, #fd8d3c, #bd0026);"></div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #a0aec0; width: 180px;">
+                    <span>24°C</span>
+                    <span>28°C</span>
+                    <span>32°C+</span>
+                </div>
+            `;
+            legendImg.style.display = 'none';
+            gradientContainer.style.display = 'block';
+        } else if (type === 'chl') {
+            legendTitle.textContent = "Chlorophyll (mg/m³)";
+            legendImg.src = `${API_BASE_URL}/api/layers/chl?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=PFZ-TUNA-SST-CHL:chl`;
+            legendImg.onerror = () => {
+                legendImg.style.display = 'none';
+                gradientContainer.style.display = 'block';
+            };
+            legendImg.onload = () => {
+                legendImg.style.display = 'block';
+                gradientContainer.style.display = 'none';
+            };
+            gradientContainer.innerHTML = `
+                <div style="width: 180px; height: 12px; border-radius: 2px; margin: 6px 0 3px 0; background: linear-gradient(to right, #000080, #0055ff, #00d4ff, #00ff55, #ffff00, #ff5500, #aa0000);"></div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #a0aec0; width: 180px;">
+                    <span>0.01</span>
+                    <span>1.0</span>
+                    <span>10.0</span>
+                </div>
+            `;
+            legendImg.style.display = 'none';
+            gradientContainer.style.display = 'block';
+        }
+    }
+
     function syncLayerVisibility() {
         if (togglePfz.checked) pfzPane.classList.remove('hidden-pane');
         else pfzPane.classList.add('hidden-pane');
@@ -315,12 +413,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (toggleSst.checked) {
             legendBox.classList.remove('hidden');
-            legendTitle.textContent = "Sea Surface Temp";
-            legendImg.src = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=PFZ-TUNA-SST-CHL:sst&LEGEND_OPTIONS=fontAntiAliasing:true;dpi:120";
+            renderLegendUI('sst');
         } else if (toggleChl.checked) {
             legendBox.classList.remove('hidden');
-            legendTitle.textContent = "Chlorophyll";
-            legendImg.src = "https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=PFZ-TUNA-SST-CHL:chl&LEGEND_OPTIONS=fontAntiAliasing:true;dpi:120";
+            renderLegendUI('chl');
         } else {
             legendBox.classList.add('hidden');
         }

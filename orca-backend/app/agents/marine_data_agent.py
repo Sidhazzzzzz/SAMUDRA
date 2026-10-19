@@ -165,6 +165,9 @@ def analyze_ecosystem_trends(region: str, years: int = 3) -> dict:
                 for i, fb_yd in enumerate(fb.get("yearly_data", [])):
                     if i < len(yearly_data):
                         yearly_data[i]["mean_chlorophyll_a_mg_per_m3"] = fb_yd.get("mean_chlorophyll_a_mg_per_m3")
+                        if yearly_data[i].get("mean_sst_celsius") is None and fb_yd.get("mean_sst_celsius") is not None:
+                            yearly_data[i]["mean_sst_celsius"] = fb_yd.get("mean_sst_celsius")
+                            sst_source = f"LOCAL_FALLBACK_SNAPSHOT (Open-Meteo unreachable on {now_str}, returning last genuine fetch)"
         except Exception as fallback_e:
             logger.error("Ecosystem fallback snapshot failed to load for CHL: %s", fallback_e)
 
