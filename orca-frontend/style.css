@@ -313,9 +313,53 @@ body {
     pointer-events: none !important;
 }
 
-/* Explicit z-index for custom panes to guarantee they render over the basemap (z-index 200) */
-.leaflet-sstPane-pane     { z-index: 410 !important; }
-.leaflet-chlPane-pane     { z-index: 420 !important; }
+/* Explicit z-index and hardware-accelerated smoothing for custom panes */
+.leaflet-sstPane-pane     { z-index: 410 !important; filter: blur(5px); }
+.leaflet-chlPane-pane     { z-index: 420 !important; filter: blur(5px); }
+.leaflet-sstPane-pane img,
+.leaflet-chlPane-pane img {
+    image-rendering: auto !important;
+}
+
+/* Glassmorphic SST / CHL hover badge */
+.sst-hover-badge {
+    background: rgba(11, 16, 30, 0.9) !important;
+    border: 1px solid rgba(99, 179, 237, 0.5) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 10px rgba(99, 179, 237, 0.25) !important;
+    border-radius: 6px !important;
+    padding: 4px 8px !important;
+    color: #FFFFFF !important;
+    font-family: var(--font-body, Inter, sans-serif) !important;
+    pointer-events: none !important;
+}
+
+.sst-hover-badge::before {
+    border-top-color: rgba(11, 16, 30, 0.9) !important;
+}
+
+.sst-hover-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.sst-hover-content .sst-val {
+    color: #FFD166;
+    font-variant-numeric: tabular-nums;
+}
+
+.sst-hover-content .sst-live-tag {
+    background: #06D6A0;
+    color: #0B101E;
+    font-size: 0.55rem;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+}
+
 .leaflet-eezPane-pane     { z-index: 430 !important; }
 .leaflet-sectorsPane-pane { z-index: 440 !important; }
 .leaflet-weatherPane-pane { z-index: 450 !important; }

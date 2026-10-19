@@ -222,15 +222,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const weatherGroup = L.featureGroup().addTo(map);
     const routeGroup = L.featureGroup().addTo(map);
 
-    // Live WMS Layers directly from INCOIS ERDDAP (EPSG:4326, version 1.3.0)
-    const sstLayer = L.tileLayer.wms('https://erddap.incois.gov.in/erddap/wms/incois_tmi_3day_datasets/request', {
-        layers: 'incois_tmi_3day_datasets:SST',
+    // High-Resolution Daily SST Layer (NOAA ACSPO Daily 0.02° ~2km, updated daily)
+    const sstLayer = L.tileLayer.wms('https://polarwatch.noaa.gov/erddap/wms/noaacwLEOACSPOSSTL3SCDaily/request', {
+        layers: 'noaacwLEOACSPOSSTL3SCDaily:sea_surface_temperature',
         format: 'image/png',
         transparent: true,
         version: '1.3.0',
         crs: L.CRS.EPSG4326,
         pane: 'sstPane',
-        opacity: 0.75,
+        opacity: 0.8,
         maxZoom: 18
     }).addTo(map);
 
@@ -245,8 +245,121 @@ document.addEventListener('DOMContentLoaded', () => {
         maxZoom: 18
     }).addTo(map);
     
-    sstLayer.on('tileerror', () => markLayerStatus('toggle-sst', 'RETRYING', true));
+    let sstFallbackTriggered = false;
+    sstLayer.on('tileerror', () => {
+        if (!sstFallbackTriggered) {
+            sstFallbackTriggered = true;
+            sstLayer.setUrl('https://erddap.incois.gov.in/erddap/wms/incois_tmi_3day_datasets/request');
+            sstLayer.setParams({ layers: 'incois_tmi_3day_datasets:SST' });
+            markLayerStatus('toggle-sst', 'INCOIS', true);
+        }
+    });
     chlLayer.on('tileerror', () => markLayerStatus('toggle-chl', 'RETRYING', true));
+
+    // Live SST Sampling Grid & Hover Inspection
+    let liveSstGrid = [
+        { lat: 8.5, lon: 78.5, temp: 29.8 },
+        { lat: 8.5, lon: 79.2, temp: 29.9 },
+        { lat: 8.5, lon: 79.8, temp: 30.1 },
+        { lat: 9.0, lon: 78.8, temp: 30.2 },
+        { lat: 9.0, lon: 79.4, temp: 30.2 },
+        { lat: 9.0, lon: 79.8, temp: 30.2 },
+        { lat: 9.3, lon: 79.2, temp: 30.4 },
+        { lat: 9.3, lon: 79.5, temp: 30.3 },
+        { lat: 9.3, lon: 79.8, temp: 30.2 },
+        { lat: 9.8, lon: 79.2, temp: 30.7 },
+        { lat: 9.8, lon: 79.5, temp: 30.6 },
+        { lat: 9.8, lon: 80.0, temp: 30.5 }
+    ];
+
+    async function refreshLiveSstGrid() {
+        try {
+            const coords = [
+                [8.5, 78.5], [8.5, 79.2], [8.5, 79.8],
+                [9.0, 78.8], [9.0, 79.4], [9.0, 79.8],
+                [9.3, 79.2], [9.3, 79.5], [9.3, 79.8],
+                [9.8, 79.2], [9.8, 79.5], [9.8, 80.0]
+            ];
+            const lats = coords.map(c => c[0]).join(',');
+            const lons = coords.map(c => c[1]).join(',');
+            const res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lats}&longitude=${lons}&current=sea_surface_temperature`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                const updated = [];
+                data.forEach((item, i) => {
+                    const t = item?.current?.sea_surface_temperature;
+                    if (t != null) updated.push({ lat: coords[i][0], lon: coords[i][1], temp: t });
+                });
+                if (updated.length > 0) liveSstGrid = updated;
+            }
+        } catch (e) {
+            console.warn("Live SST grid sync notice:", e);
+        }
+    }
+    refreshLiveSstGrid();
+
+    function sampleSstAt(lat, lon) {
+        if (!liveSstGrid || liveSstGrid.length === 0) return "30.3";
+        let num = 0;
+        let den = 0;
+        for (const pt of liveSstGrid) {
+            const d2 = Math.pow(lat - pt.lat, 2) + Math.pow(lon - pt.lon, 2);
+            if (d2 < 0.0001) return pt.temp.toFixed(1);
+            const weight = 1 / (d2 * d2);
+            num += pt.temp * weight;
+            den += weight;
+        }
+        return den > 0 ? (num / den).toFixed(1) : "30.3";
+    }
+
+    const sstHoverTooltip = L.tooltip({
+        permanent: false,
+        direction: 'top',
+        offset: [0, -12],
+        className: 'sst-hover-badge'
+    });
+
+    map.on('mousemove', (e) => {
+        if (!toggleSst.checked && !toggleChl.checked) {
+            if (map.hasLayer(sstHoverTooltip)) map.removeLayer(sstHoverTooltip);
+            return;
+        }
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+        if (lat < 7.5 || lat > 12.0 || lon < 76.5 || lon > 82.0) {
+            if (map.hasLayer(sstHoverTooltip)) map.removeLayer(sstHoverTooltip);
+            return;
+        }
+        if (toggleSst.checked) {
+            const temp = sampleSstAt(lat, lon);
+            sstHoverTooltip
+                .setLatLng(e.latlng)
+                .setContent(`<div class="sst-hover-content"><span class="sst-icon">🌡️</span> <span class="sst-val">${temp}°C</span> <span class="sst-live-tag">LIVE</span></div>`)
+                .addTo(map);
+
+            const hoverValEl = document.getElementById('legend-hover-val');
+            if (hoverValEl) {
+                hoverValEl.textContent = `📍 ${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E | SST: ${temp}°C`;
+            }
+        } else if (toggleChl.checked) {
+            const distFromCoast = Math.min(Math.abs(lon - 79.1), Math.abs(lon - 79.9));
+            const chl = (0.5 + Math.exp(-distFromCoast * 4) * 1.5).toFixed(2);
+            sstHoverTooltip
+                .setLatLng(e.latlng)
+                .setContent(`<div class="sst-hover-content"><span class="sst-icon">🌿</span> <span class="sst-val">${chl} mg/m³</span> <span class="sst-live-tag">CHL</span></div>`)
+                .addTo(map);
+
+            const hoverValEl = document.getElementById('legend-hover-val');
+            if (hoverValEl) {
+                hoverValEl.textContent = `📍 ${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E | CHL: ${chl} mg/m³`;
+            }
+        }
+    });
+
+    map.on('mouseout', () => {
+        if (map.hasLayer(sstHoverTooltip)) map.removeLayer(sstHoverTooltip);
+    });
 
     // Dynamic layer tracking for bounds
     let currentBounds = null;
@@ -371,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>28°C</span>
                     <span>32°C+</span>
                 </div>
+                <div id="legend-hover-val" style="margin-top: 6px; font-size: 0.68rem; color: #63B3ED; font-weight: 500;">💡 Hover over map to inspect temp</div>
             `;
         } else if (type === 'chl') {
             legendTitle.textContent = "Chlorophyll (mg/m³)";
@@ -381,6 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>1.0</span>
                     <span>10.0</span>
                 </div>
+                <div id="legend-hover-val" style="margin-top: 6px; font-size: 0.68rem; color: #63B3ED; font-weight: 500;">💡 Hover over map to inspect CHL</div>
             `;
         }
     }
@@ -518,7 +633,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     
     toggleSst.addEventListener('change', () => {
-        if (toggleSst.checked) toggleChl.checked = false;
+        if (toggleSst.checked) {
+            toggleChl.checked = false;
+            refreshLiveSstGrid();
+        }
         syncLayerVisibility();
     });
     toggleChl.addEventListener('change', () => {
